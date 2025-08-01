@@ -46,14 +46,66 @@ flutter run
 6. `google-services.json` dosyasını indirin
 7. İndirilen dosyayı `android/app/` klasörüne kopyalayın
 
-### 3. Firestore Veritabanı Kurulumu
+### 3. iOS Uygulaması Ekleme (Opsiyonel)
+
+1. Firebase Console'da iOS simgesine tıklayın
+2. iOS bundle ID'sini girin: `com.example.mobilappPysc`
+3. Uygulama takma adını girin (opsiyonel)
+4. "Uygulama kaydet" butonuna tıklayın
+5. `GoogleService-Info.plist` dosyasını indirin
+6. İndirilen dosyayı `ios/Runner/` klasörüne kopyalayın
+
+### 4. Firebase Authentication Kurulumu
+
+1. Firebase Console'da "Authentication" seçin
+2. "Sign-in method" sekmesine gidin
+3. Aşağıdaki giriş yöntemlerini etkinleştirin:
+
+#### E-posta/Şifre
+- "Email/Password" seçin
+- "Enable" butonuna tıklayın
+- "Email link (passwordless sign-in)" opsiyonel olarak etkinleştirebilirsiniz
+
+#### Google Sign-In
+- "Google" seçin
+- "Enable" butonuna tıklayın
+- Proje destek e-postasını seçin
+- "Save" butonuna tıklayın
+
+#### Apple Sign-In (iOS için)
+- "Apple" seçin
+- "Enable" butonuna tıklayın
+- Apple Developer hesabınızla yapılandırın
+
+### 5. Firestore Veritabanı Kurulumu
 
 1. Firebase Console'da "Firestore Database" seçin
 2. "Veritabanı oluştur" butonuna tıklayın
 3. Test modunda başlatın (güvenlik kurallarını daha sonra yapılandırabilirsiniz)
 4. Bölge seçin (örn: europe-west3)
 
-### 4. Firebase Environment Variables
+### 6. Firestore Güvenlik Kuralları
+
+Firestore Database > Rules bölümünde aşağıdaki kuralları ayarlayın:
+
+```javascript
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Kullanıcılar sadece kendi verilerine erişebilir
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Chat mesajları için kurallar (gelecekte eklenebilir)
+    match /chats/{chatId} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}
+```
+
+### 7. Firebase Environment Variables
 
 Firebase Console'dan aldığınız bilgileri environment variables olarak ayarlayın:
 
@@ -63,6 +115,46 @@ export FIREBASE_APP_ID="your_firebase_app_id"
 export FIREBASE_PROJECT_ID="your_project_id"
 export FIREBASE_SENDER_ID="your_sender_id"
 export FIREBASE_STORAGE_BUCKET="your_project_id.appspot.com"
+```
+
+## 🔐 Kimlik Doğrulama Yapılandırması
+
+### Google Sign-In için Android Yapılandırması
+
+1. Firebase Console'da projenizin ayarlarına gidin
+2. "General" sekmesinde "Your apps" bölümünü bulun
+3. Android uygulamanızı seçin
+4. "SHA certificate fingerprints" bölümünde SHA-1 parmak izini ekleyin:
+
+```bash
+# Debug için SHA-1 almak
+cd android && ./gradlew signingReport
+```
+
+### Apple Sign-In için iOS Yapılandırması
+
+1. [Apple Developer Console](https://developer.apple.com/) adresine gidin
+2. "Certificates, Identifiers & Profiles" seçin
+3. "Identifiers" bölümünde uygulamanızı seçin
+4. "Sign In with Apple" capability'sini etkinleştirin
+5. Firebase Console'da Apple Sign-In ayarlarını yapılandırın
+
+### iOS Info.plist Yapılandırması
+
+`ios/Runner/Info.plist` dosyasına aşağıdaki ayarları ekleyin:
+
+```xml
+<key>CFBundleURLTypes</key>
+<array>
+  <dict>
+    <key>CFBundleURLName</key>
+    <string>REVERSED_CLIENT_ID</string>
+    <key>CFBundleURLSchemes</key>
+    <array>
+      <string>com.googleusercontent.apps.YOUR_CLIENT_ID</string>
+    </array>
+  </dict>
+</array>
 ```
 
 ## 🤖 Gemini API Kurulumu
@@ -174,6 +266,8 @@ flutter build apk --release
 3. **Firebase Rules**: Firestore güvenlik kurallarını yapılandırın
 4. **Rate Limiting**: API kullanım limitlerini kontrol edin
 5. **.env Dosyası**: .env dosyasının .gitignore'da olduğundan emin olun
+6. **Authentication**: Kullanıcı verilerini güvenli bir şekilde saklayın
+7. **Email Verification**: E-posta doğrulama sürecini test edin
 
 ## 🐛 Sorun Giderme
 
@@ -192,6 +286,13 @@ echo $FIREBASE_PROJECT_ID
 - Environment variables'ların doğru ayarlandığından emin olun
 - Firebase Console'da proje ayarlarını kontrol edin
 - Internet bağlantınızı kontrol edin
+
+### Authentication Sorunları
+
+- Firebase Authentication'da giriş yöntemlerinin etkinleştirildiğinden emin olun
+- Google Sign-In için SHA-1 parmak izinin doğru eklendiğini kontrol edin
+- Apple Sign-In için iOS bundle ID'sinin doğru olduğunu kontrol edin
+- E-posta doğrulama sürecini test edin
 
 ### Gemini API Sorunu
 

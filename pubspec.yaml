@@ -40,6 +40,9 @@ dependencies:
   firebase_auth: ^4.15.3
   cloud_firestore: ^4.13.6
   
+  # Authentication
+  google_sign_in: ^6.1.6
+  
   # Speech & Audio
   speech_to_text: ^7.2.0
   flutter_tts: ^4.2.3
