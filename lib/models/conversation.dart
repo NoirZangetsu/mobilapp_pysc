@@ -4,6 +4,8 @@ class ConversationMessage {
   final bool isUser;
   final DateTime timestamp;
   final String? audioUrl;
+  final bool isSystemMessage;
+  final String? documentId;
 
   ConversationMessage({
     required this.id,
@@ -11,6 +13,8 @@ class ConversationMessage {
     required this.isUser,
     required this.timestamp,
     this.audioUrl,
+    this.isSystemMessage = false,
+    this.documentId,
   });
 
   Map<String, dynamic> toMap() {
@@ -20,6 +24,8 @@ class ConversationMessage {
       'isUser': isUser,
       'timestamp': timestamp.toIso8601String(),
       'audioUrl': audioUrl,
+      'isSystemMessage': isSystemMessage,
+      'documentId': documentId,
     };
   }
 
@@ -30,6 +36,8 @@ class ConversationMessage {
       isUser: map['isUser'],
       timestamp: DateTime.parse(map['timestamp']),
       audioUrl: map['audioUrl'],
+      isSystemMessage: map['isSystemMessage'] ?? false,
+      documentId: map['documentId'],
     );
   }
 }

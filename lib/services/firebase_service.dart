@@ -70,15 +70,42 @@ class FirebaseService {
     }
   }
 
-  Stream<List<Conversation>> getUserConversations(String userId) {
-    return _firestore
-        .collection('conversations')
-        .where('userId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) => snapshot.docs
-            .map((doc) => Conversation.fromMap(doc.data()))
-            .toList());
+  // Get latest conversation for user
+  Future<Conversation?> getLatestConversation(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('conversations')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .limit(1)
+          .get();
+
+      if (snapshot.docs.isNotEmpty) {
+        return Conversation.fromMap(snapshot.docs.first.data());
+      }
+      return null;
+    } catch (e) {
+      print('Failed to get latest conversation: $e');
+      return null;
+    }
+  }
+
+  // Get all conversations for user
+  Future<List<Conversation>> getUserConversations(String userId) async {
+    try {
+      final snapshot = await _firestore
+          .collection('conversations')
+          .where('userId', isEqualTo: userId)
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snapshot.docs
+          .map((doc) => Conversation.fromMap(doc.data()))
+          .toList();
+    } catch (e) {
+      print('Failed to get user conversations: $e');
+      return [];
+    }
   }
 
   Future<void> deleteConversation(String conversationId) async {

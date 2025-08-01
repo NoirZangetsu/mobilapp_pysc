@@ -3,8 +3,8 @@ import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../utils/app_colors.dart';
 import '../../utils/app_text_styles.dart';
+import '../home_screen.dart';
 import 'login_screen.dart';
-import '../chat_screen.dart';
 
 class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
@@ -58,7 +58,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
         // User is authenticated, show main app
         if (authProvider.isAuthenticated) {
-          return const ChatScreen();
+          return const HomeScreen();
         }
 
         // Default to login screen
