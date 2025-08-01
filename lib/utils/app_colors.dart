@@ -2,20 +2,20 @@ import 'package:flutter/material.dart';
 
 class AppColors {
   // Primary Colors
-  static const Color primaryBackground = Color(0xFF1A1A1A); // Koyu Kömür Grisi
-  static const Color surfaceBackground = Color(0xFF2A2A2A); // Hafif Açık Kömür Grisi
-  static const Color accentBlue = Color(0xFF58A6FF); // Sakin ve Profesyonel Mavi
+  static const Color primaryBackground = Color(0xFF1A1A1A);
+  static const Color surfaceBackground = Color(0xFF2A2A2A);
+  static const Color accentBlue = Color(0xFF58A6FF);
   
   // Text Colors
-  static const Color primaryText = Color(0xFFE0E0E0); // Yumuşak Beyaz
-  static const Color headingText = Color(0xFFFFFFFF); // Net Beyaz
-  static const Color secondaryText = Color(0xFFB0B0B0); // Açık Gri
-  static const Color disabledText = Color(0xFF808080); // Orta Gri
+  static const Color primaryText = Color(0xFFE0E0E0);
+  static const Color headingText = Color(0xFFFFFFFF);
+  static const Color secondaryText = Color(0xFFB0B0B0);
+  static const Color disabledText = Color(0xFF808080);
   
   // Status Colors
-  static const Color success = Color(0xFF6FCF97); // Yeşil
-  static const Color warning = Color(0xFFFFB74D); // Turuncu
-  static const Color error = Color(0xFFEB5757); // Kırmızı
+  static const Color success = Color(0xFF6FCF97);
+  static const Color warning = Color(0xFFFFB74D);
+  static const Color error = Color(0xFFEB5757);
   
   // Border Colors
   static const Color borderLight = Color(0xFF404040);

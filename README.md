@@ -1,134 +1,210 @@
-# Dinleyen Zeka - Sesli Etkileşimli Kişisel Danışman Uygulaması
+# EduVoice AI 🎓
 
-Bu proje, **Gemini 2.0 Flash** yapay zeka modelinin multimodal yeteneklerini temel alan, sesli etkileşimli bir kişisel danışman uygulamasının Minimum Uygulanabilir Ürün (MVP) sürümüdür.
+<div align="center">
+  <img src="assets/images/app_icon.png" alt="EduVoice AI Logo" width="120" height="120" style="border-radius: 20px;">
+  <br>
+  <h3>Sesli Etkileşimli Kişisel Eğitim Asistanı</h3>
+</div>
 
-## 🎯 Proje Amacı
+---
 
-Bu MVP'nin temel amacı, ses tabanlı yapay zeka etkileşiminin ve hafıza fonksiyonunun teknik fizibilitesini ve kullanıcı kabulünü test etmektir. Uygulama profesyonel bir terapi veya tıbbi danışmanlık hizmeti sunmamaktadır.
+## 📱 Uygulama Hakkında
 
-## ✨ Özellikler
+**EduVoice AI**, yapay zeka teknolojisi ile güçlendirilmiş, sesli etkileşimli bir eğitim asistanıdır. Öğrenme sürecinizi kişiselleştirilmiş ve etkileşimli hale getirir.
 
-- **Sesli Etkileşim**: Kullanıcının sesli anlatımlarını doğrudan işleme
-- **Speech-to-Text**: Speech-to-Text ara katmanına olan ihtiacı ortadan kaldırma
-- **Akıcı Diyalog**: Daha akıcı bir diyalog akışı sağlama
-- **Hafıza Fonksiyonu**: Geçmiş konuşmaları referans alarak bağlama duyarlı yanıtlar
-- **Text-to-Speech**: AI yanıtlarını sese dönüştürme
-- **Firebase Entegrasyonu**: Güvenli veri saklama ve senkronizasyon
-- **Kriz Protokolü**: Acil durumlar için otomatik yönlendirme
+### ✨ Temel Özellikler
 
-## 🛠️ Teknolojiler
+- 🗣️ **Sesli Sohbet**: Konuşarak sorularınızı sorun, anında yanıt alın
+- 📚 **Akıllı Öğrenme**: Kişiselleştirilmiş eğitim deneyimi
+- 🎧 **Sesli Dinleme**: Yanıtları sesli olarak dinleyin
+- 📄 **Belge Analizi**: PDF ve resim dosyalarınızı analiz edin
+- 🎯 **Flashcard**: Öğrenme kartları oluşturun ve çalışın
+- 🎙️ **Podcast**: Eğitimsel sesli içerikler oluşturun
 
-- **Flutter**: Cross-platform mobil uygulama geliştirme
-- **Gemini 2.0 Flash**: Google'ın en gelişmiş AI modeli
-- **Firebase**: Authentication ve Firestore veritabanı
-- **Speech-to-Text**: Gerçek zamanlı ses tanıma
-- **Text-to-Speech**: AI yanıtlarını sese dönüştürme
-- **Provider**: State management
+---
 
-## 📱 Kurulum
+## 🚀 Hızlı Başlangıç
 
 ### Gereksinimler
+- Android 5.0+ veya iOS 12.0+
+- İnternet bağlantısı
+- Mikrofon izni (sesli etkileşim için)
 
-- Flutter SDK (3.8.0+)
-- Android Studio / VS Code
-- Android SDK (API 21+)
-- iOS Simulator (macOS için)
+### Kurulum
+1. Uygulamayı cihazınıza indirin
+2. Gerekli izinleri verin
+3. Hemen kullanmaya başlayın!
 
-### Adımlar
+---
 
-1. **Projeyi klonlayın**
-   ```bash
-   git clone <repository-url>
-   cd mobilapp_pysc
-   ```
+## 🎯 Nasıl Kullanılır
 
-2. **Bağımlılıkları yükleyin**
-   ```bash
-   flutter pub get
-   ```
+### 1. Sesli Sohbet
+- Mikrofon butonuna basın
+- Sorunuzu sesli olarak sorun
+- AI asistanınız anında yanıt verecek
 
-3. **Firebase yapılandırması**
-   - Firebase Console'da yeni proje oluşturun
-   - Android uygulaması ekleyin
-   - `google-services.json` dosyasını `android/app/` klasörüne yerleştirin
-   - Firestore veritabanını etkinleştirin
+### 2. Belge Yükleme
+- PDF veya resim dosyanızı seçin
+- AI asistanı içeriği analiz edecek
+- Sorularınızı sorun ve detaylı yanıtlar alın
 
-4. **Gemini API Key**
-   - `lib/services/gemini_service.dart` dosyasında `_apiKey` değişkenini güncelleyin
+### 3. Flashcard Oluşturma
+- Herhangi bir konu hakkında flashcard oluşturun
+- AI otomatik olarak öğrenme kartları hazırlayacak
+- Çalışın ve ilerlemenizi takip edin
 
-5. **Uygulamayı çalıştırın**
-   ```bash
-   flutter run
-   ```
+### 4. Podcast Dinleme
+- Konular hakkında sesli içerikler oluşturun
+- Yolda, spor yaparken veya dinlenirken dinleyin
 
-## 🔧 Yapılandırma
+---
 
-### Firebase Kurulumu
+## 🎨 Özellikler
 
-1. Firebase Console'a gidin
-2. Yeni proje oluşturun
-3. Android uygulaması ekleyin
-4. `google-services.json` dosyasını indirin
-5. Firestore veritabanını etkinleştirin
+### 🤖 Yapay Zeka Destekli
+- **Gemini 2.0 Flash** teknolojisi
+- Çok dilli destek
+- Bağlam farkındalığı
+- Kişiselleştirilmiş öğrenme
 
-### Gemini API Key
+### 🎤 Sesli Etkileşim
+- Gerçek zamanlı konuşma tanıma
+- Doğal ses sentezi
+- Gürültü filtreleme
+- Hızlı yanıt süresi
 
-1. Google AI Studio'ya gidin
-2. API key oluşturun
-3. `lib/services/gemini_service.dart` dosyasında güncelleyin
+### 📊 Öğrenme Analizi
+- İlerleme takibi
+- Öğrenme istatistikleri
+- Kişiselleştirilmiş öneriler
+- Hedef belirleme
 
-## 📁 Proje Yapısı
+### 🔒 Gizlilik ve Güvenlik
+- Verileriniz güvende
+- Şifreli iletişim
+- Gizlilik odaklı tasarım
+- Kullanıcı kontrolü
 
-```
-lib/
-├── models/
-│   └── conversation.dart          # Konuşma modeli
-├── services/
-│   ├── firebase_service.dart      # Firebase işlemleri
-│   ├── gemini_service.dart        # Gemini AI entegrasyonu
-│   ├── speech_service.dart        # Speech-to-Text
-│   └── tts_service.dart          # Text-to-Speech
-├── providers/
-│   └── chat_provider.dart         # State management
-├── screens/
-│   └── chat_screen.dart          # Ana ekran
-├── widgets/
-│   ├── message_bubble.dart        # Mesaj balonu
-│   └── voice_button.dart          # Ses butonu
-└── main.dart                     # Uygulama girişi
-```
+---
 
-## 🎨 UI/UX Özellikleri
+## 📚 Öğrenme Modülleri
 
-- **Modern Tasarım**: Koyu tema ile göz dostu arayüz
-- **Animasyonlar**: Ses durumları için görsel geri bildirim
-- **Responsive**: Farklı ekran boyutlarına uyum
-- **Erişilebilirlik**: Voice-over desteği
+### 💬 Akıllı Sohbet
+- Herhangi bir konu hakkında soru sorun
+- Detaylı ve anlaşılır yanıtlar alın
+- Konuşma geçmişi takibi
+- Bağlam farkındalığı
 
-## 🔒 Güvenlik
+### 📝 Flashcard Sistemi
+- Otomatik kart oluşturma
+- Çalışma takibi
+- Tekrar algoritması
+- İlerleme analizi
 
-- **Anonim Kimlik Doğrulama**: Kullanıcı gizliliği
-- **Güvenli Veri Saklama**: Firebase Firestore
-- **Kriz Protokolü**: Acil durumlar için otomatik müdahale
+### 🎧 Eğitim Podcastleri
+- Konu bazlı sesli içerik
+- Özelleştirilebilir süre
+- Çevrimdışı dinleme
+- Not alma özelliği
 
-## ⚠️ Önemli Notlar
+### 📄 Belge Analizi
+- PDF dosya desteği
+- Resim analizi
+- Metin çıkarma
+- Akıllı özetleme
 
-- Bu uygulama profesyonel bir terapi veya tıbbi danışmanlık hizmeti sunmamaktadır
-- Ciddi konular için mutlaka bir sağlık profesyoneli ile görüşünüz
-- Kriz durumlarında 112 Acil Çağrı Merkezi'ni arayınız
+---
+
+## 🎯 Hedef Kitle
+
+### 👨‍🎓 Öğrenciler
+- Ders çalışma desteği
+- Sınav hazırlığı
+- Konu tekrarı
+- Soru çözümü
+
+### 👨‍🏫 Öğretmenler
+- Ders materyali hazırlama
+- Öğrenci desteği
+- İçerik oluşturma
+- Eğitim planlaması
+
+### 👨‍💼 Profesyoneller
+- Sürekli öğrenme
+- Beceri geliştirme
+- Araştırma desteği
+- Bilgi güncelleme
+
+### 👨‍👩‍👧‍👦 Genel Kullanıcılar
+- Merak giderme
+- Yeni konular öğrenme
+- Kişisel gelişim
+- Eğlenceli öğrenme
+
+---
+
+## 🔧 Teknik Özellikler
+
+### 📱 Platform Desteği
+- **Android**: 5.0+ (API 21+)
+- **iOS**: 12.0+
+- **Cross-platform**: Flutter tabanlı
+
+### 🛠️ Teknolojiler
+- **AI Model**: Google Gemini 2.0 Flash
+- **Backend**: Firebase
+- **Speech**: Real-time STT/TTS
+- **Security**: End-to-end encryption
+
+### 📊 Performans
+- Hızlı yanıt süresi (2-3 saniye)
+- Düşük bellek kullanımı
+- Optimize edilmiş ağ trafiği
+- Pil dostu tasarım
+
+---
+
+## 🆘 Destek
+
+### 📞 İletişim
+- **E-posta**: support@eduvoice.ai
+- **Web**: www.eduvoice.ai
+- **Sosyal Medya**: @EduVoiceAI
+
+### ❓ Sık Sorulan Sorular
+
+**Q: Uygulama ücretsiz mi?**
+A: Temel özellikler ücretsizdir. Premium özellikler için abonelik gereklidir.
+
+**Q: Hangi dilleri destekliyor?**
+A: Türkçe, İngilizce ve diğer birçok dil desteklenmektedir.
+
+**Q: İnternet bağlantısı gerekli mi?**
+A: AI özellikleri için internet bağlantısı gereklidir.
+
+**Q: Verilerim güvende mi?**
+A: Tüm verileriniz şifrelenir ve güvenli sunucularda saklanır.
+
+---
 
 ## 📄 Lisans
 
 Bu proje MIT lisansı altında lisanslanmıştır.
 
+---
+
 ## 🤝 Katkıda Bulunma
 
-1. Fork edin
+1. Projeyi fork edin
 2. Feature branch oluşturun (`git checkout -b feature/amazing-feature`)
-3. Commit edin (`git commit -m 'Add amazing feature'`)
-4. Push edin (`git push origin feature/amazing-feature`)
+3. Değişikliklerinizi commit edin (`git commit -m 'Add amazing feature'`)
+4. Branch'inizi push edin (`git push origin feature/amazing-feature`)
 5. Pull Request oluşturun
 
-## 📞 İletişim
+---
 
-Proje hakkında sorularınız için issue açabilirsiniz.
+<div align="center">
+  <p><strong>EduVoice AI ile öğrenmeyi keşfedin! 🚀</strong></p>
+  <p>Yapay zeka destekli eğitim deneyimi için hemen indirin.</p>
+</div>
