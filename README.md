@@ -165,13 +165,6 @@
 
 ---
 
-## 🆘 Destek
-
-### 📞 İletişim
-- **E-posta**: support@eduvoice.ai
-- **Web**: www.eduvoice.ai
-- **Sosyal Medya**: @EduVoiceAI
-
 ### ❓ Sık Sorulan Sorular
 
 **Q: Uygulama ücretsiz mi?**
