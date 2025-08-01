@@ -4,7 +4,10 @@ import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'firebase_options.dart';
 import 'providers/chat_provider.dart';
-import 'screens/chat_screen.dart';
+import 'providers/auth_provider.dart';
+import 'screens/auth/auth_wrapper.dart';
+import 'utils/app_colors.dart';
+import 'utils/app_text_styles.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -17,9 +20,9 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
-    print('Firebase initialized successfully');
+    // Firebase initialized successfully
   } catch (e) {
-    print('Firebase initialization failed: $e');
+    // Firebase initialization failed: $e
     // Continue without Firebase
   }
   
@@ -34,38 +37,65 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ChatProvider()),
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
       ],
       child: MaterialApp(
         title: 'Dinleyen Zeka',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           primarySwatch: Colors.blue,
-          scaffoldBackgroundColor: const Color(0xFF1A1A1A),
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Color(0xFF2D2D2D),
+          scaffoldBackgroundColor: AppColors.primaryBackground,
+          fontFamily: AppTextStyles.fontFamily,
+          appBarTheme: AppBarTheme(
+            backgroundColor: AppColors.surfaceBackground,
             elevation: 0,
             centerTitle: true,
-            titleTextStyle: TextStyle(
-              color: Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-            iconTheme: IconThemeData(color: Colors.white),
+            titleTextStyle: AppTextStyles.headingMedium,
+            iconTheme: const IconThemeData(color: AppColors.headingText),
           ),
-          dialogTheme: const DialogThemeData(
-            backgroundColor: Color(0xFF2D2D2D),
-            titleTextStyle: TextStyle(
-              color: Colors.white,
-              fontSize: 18,
-              fontWeight: FontWeight.w600,
+          dialogTheme: DialogThemeData(
+            backgroundColor: AppColors.surfaceBackground,
+            titleTextStyle: AppTextStyles.headingSmall,
+            contentTextStyle: AppTextStyles.bodyMedium,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            contentTextStyle: TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primaryButton,
+              foregroundColor: AppColors.headingText,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
             ),
+          ),
+          textButtonTheme: TextButtonThemeData(
+            style: TextButton.styleFrom(
+              foregroundColor: AppColors.accentBlue,
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: AppColors.inputBackground,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.inputBorder),
+            ),
+            enabledBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.inputBorder),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: AppColors.inputFocusedBorder, width: 2),
+            ),
+            labelStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.inputLabel),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           ),
         ),
-        home: const ChatScreen(),
+        home: const AuthWrapper(),
       ),
     );
   }
