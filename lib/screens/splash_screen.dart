@@ -92,6 +92,7 @@ class _SplashScreenState extends State<SplashScreen>
             colors: [
               AppColors.primaryBackground,
               AppColors.surfaceBackground,
+              AppColors.secondaryBlue.withOpacity(0.3),
             ],
           ),
         ),
@@ -115,10 +116,16 @@ class _SplashScreenState extends State<SplashScreen>
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primaryButton.withOpacity(0.3),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                                offset: const Offset(0, 10),
+                                color: AppColors.iconPrimary.withOpacity(0.4),
+                                blurRadius: 25,
+                                spreadRadius: 8,
+                                offset: const Offset(0, 12),
+                              ),
+                              BoxShadow(
+                                color: AppColors.iconAccent.withOpacity(0.2),
+                                blurRadius: 15,
+                                spreadRadius: 3,
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
@@ -148,6 +155,13 @@ class _SplashScreenState extends State<SplashScreen>
                         style: AppTextStyles.headingLarge.copyWith(
                           color: AppColors.headingText,
                           fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(
+                              color: AppColors.iconPrimary.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -176,19 +190,33 @@ class _SplashScreenState extends State<SplashScreen>
                 
                 const SizedBox(height: 48),
                 
-                // Loading Indicator
+                // Loading Indicator with new colors
                 AnimatedBuilder(
                   animation: _fadeController,
                   builder: (context, child) {
                     return Opacity(
                       opacity: _fadeAnimation.value,
-                      child: SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.primaryButton,
+                      child: Container(
+                        width: 50,
+                        height: 50,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(25),
+                          gradient: LinearGradient(
+                            colors: AppColors.accentGradient,
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                        ),
+                        child: const Center(
+                          child: SizedBox(
+                            width: 30,
+                            height: 30,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
                           ),
                         ),
                       ),

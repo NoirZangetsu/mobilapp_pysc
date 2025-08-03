@@ -23,6 +23,7 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
   bool _isProcessingPDF = false;
   bool _isProcessingImage = false;
   bool _isTyping = false;
+  bool _isCreatingFlashcards = false; // Yeni loading state
   int _selectedCardCount = 10;
 
   @override
@@ -38,19 +39,20 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       backgroundColor: AppColors.primaryBackground,
       appBar: _buildAppBar(),
       body: SafeArea(
-        child: Consumer<LearningProvider>(
-          builder: (context, learningProvider, child) {
-            return Column(
-              children: [
-                _buildAIAssistantSection(context, learningProvider),
-                Expanded(
-                  child: learningProvider.flashcardDecks.isEmpty
-                      ? _buildEmptyState()
-                      : _buildFlashcardsList(learningProvider),
-                ),
-              ],
-            );
-          },
+        child: SingleChildScrollView(
+          child: Consumer<LearningProvider>(
+            builder: (context, learningProvider, child) {
+              return Column(
+                children: [
+                  _buildAIAssistantSection(context, learningProvider),
+                  if (learningProvider.flashcardDecks.isNotEmpty)
+                    _buildFlashcardsList(learningProvider)
+                  else
+                    _buildEmptyState(),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -66,46 +68,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
       ),
       centerTitle: true,
       iconTheme: const IconThemeData(color: AppColors.headingText),
-      actions: [
-        _buildUploadButton(
-          icon: Icons.image,
-          isLoading: _isProcessingImage,
-          onPressed: _pickAndProcessImage,
-          tooltip: 'Görüntü Yükle',
-        ),
-        _buildUploadButton(
-          icon: Icons.upload_file,
-          isLoading: _isProcessingPDF,
-          onPressed: _pickAndProcessPDF,
-          tooltip: 'PDF Yükle',
-        ),
-        IconButton(
-          icon: const Icon(Icons.add, color: AppColors.secondaryText),
-          onPressed: () => _showCreateFlashcardDialog(context),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildUploadButton({
-    required IconData icon,
-    required bool isLoading,
-    required VoidCallback onPressed,
-    required String tooltip,
-  }) {
-    return IconButton(
-      icon: isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
-              ),
-            )
-          : Icon(icon, color: AppColors.accentBlue),
-      onPressed: isLoading ? null : onPressed,
-      tooltip: tooltip,
     );
   }
 
@@ -179,38 +141,74 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    _textController.clear();
-    _textFocusNode.unfocus();
-    
-    final learningProvider = context.read<LearningProvider>();
-    final authProvider = context.read<AuthProvider>();
-    
-    if (authProvider.currentUser != null) {
-      await learningProvider.processFlashcardRequest(
-        text, 
-        authProvider.currentUser!.uid,
-        cardCount: _selectedCardCount,
-      );
+    // Set loading state
+    setState(() {
+      _isCreatingFlashcards = true;
+    });
+
+    try {
+      _textController.clear();
+      _textFocusNode.unfocus();
+      
+      final learningProvider = context.read<LearningProvider>();
+      final authProvider = context.read<AuthProvider>();
+      
+      if (authProvider.currentUser != null) {
+        await learningProvider.processFlashcardRequest(
+          text, 
+          authProvider.currentUser!.uid,
+          cardCount: _selectedCardCount,
+        );
+        
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Bilgi kartları başarıyla oluşturuldu!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Bilgi kartları oluşturma hatası: $e'),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      // Clear loading state
+      if (mounted) {
+        setState(() {
+          _isCreatingFlashcards = false;
+        });
+      }
     }
   }
 
   Widget _buildAIAssistantSection(BuildContext context, LearningProvider learningProvider) {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(12), // Reduced margin
+      padding: const EdgeInsets.all(12), // Reduced padding
       decoration: _buildSectionDecoration(),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildAIHeader(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced spacing
           _buildCardCountSelector(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // Reduced spacing
           _buildCardCountSlider(),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced spacing
           _buildTextInputArea(),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // Reduced spacing
           _buildQuickActionButtons(),
+          const SizedBox(height: 6), // Reduced spacing
+          _buildExamplePrompts(),
         ],
       ),
     );
@@ -336,7 +334,9 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
         color: AppColors.inputBackground,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.inputBorder,
+          color: _isCreatingFlashcards 
+              ? AppColors.accentBlue 
+              : AppColors.inputBorder,
           width: 1,
         ),
       ),
@@ -347,10 +347,15 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               controller: _textController,
               focusNode: _textFocusNode,
               style: AppTextStyles.bodyMedium,
+              enabled: !_isCreatingFlashcards, // Disable during creation
               decoration: InputDecoration(
-                hintText: 'AI asistanına sorun...',
+                hintText: _isCreatingFlashcards 
+                    ? 'Bilgi kartları oluşturuluyor...' 
+                    : 'AI asistanına sorun...',
                 hintStyle: AppTextStyles.bodyMedium.copyWith(
-                  color: AppColors.inputLabel,
+                  color: _isCreatingFlashcards 
+                      ? AppColors.accentBlue 
+                      : AppColors.inputLabel,
                 ),
                 border: InputBorder.none,
                 contentPadding: const EdgeInsets.symmetric(
@@ -364,15 +369,26 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
               onChanged: (value) => setState(() => _isTyping = value.isNotEmpty),
             ),
           ),
-          if (_isTyping)
-            Container(
-              margin: const EdgeInsets.only(right: 4),
-              child: IconButton(
-                icon: const Icon(Icons.send, color: AppColors.accentBlue, size: 20),
-                onPressed: _sendTextMessage,
-                tooltip: 'Gönder',
-              ),
-            ),
+          // Loading indicator or send button
+          Container(
+            margin: const EdgeInsets.only(right: 4),
+            child: _isCreatingFlashcards
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
+                    ),
+                  )
+                : _isTyping
+                    ? IconButton(
+                        icon: const Icon(Icons.send, color: AppColors.accentBlue, size: 20),
+                        onPressed: _sendTextMessage,
+                        tooltip: 'Gönder',
+                      )
+                    : const SizedBox.shrink(),
+          ),
         ],
       ),
     );
@@ -446,6 +462,46 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     );
   }
 
+  Widget _buildExamplePrompts() {
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: AppColors.accentBlue.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.accentBlue.withValues(alpha: 0.1),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.lightbulb_outline,
+                size: 14,
+                color: AppColors.accentBlue,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                'Örnek Sorular:',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.accentBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _buildExampleQuestion('"Matematik için $_selectedCardCount bilgi kartı oluştur"'),
+          _buildExampleQuestion('"Tarih konularından $_selectedCardCount kart yap"'),
+          _buildExampleQuestion('"Bu PDF\'den $_selectedCardCount soru kartı oluştur"'),
+          _buildExampleQuestion('"Bilim konuları için $_selectedCardCount öğrenme kartı yap"'),
+        ],
+      ),
+    );
+  }
+
   Widget _buildQuickActionButton({
     required IconData icon,
     required String label,
@@ -498,80 +554,6 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  Widget _buildCreateSection(BuildContext context, LearningProvider provider) {
-    return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Yeni Bilgi Kartları Oluştur',
-            style: AppTextStyles.headingSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Konu veya dokümanlardan otomatik olarak bilgi kartları oluşturun',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: provider.isCreatingFlashcards
-                      ? null
-                      : () => _showCreateFromTopicDialog(context, provider),
-                  icon: provider.isCreatingFlashcards
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.topic),
-                  label: const Text('Konudan Oluştur'),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: provider.isCreatingFlashcards || provider.documents.isEmpty
-                      ? null
-                      : () => _showCreateFromDocumentDialog(context, provider),
-                  icon: const Icon(Icons.description),
-                  label: const Text('Dokümandan Oluştur'),
-                ),
-              ),
-            ],
-          ),
-          if (provider.flashcardError != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                provider.flashcardError!,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.error,
-                ),
-              ),
-            ),
-          ],
-        ],
       ),
     );
   }
@@ -673,11 +655,55 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
 
   Widget _buildFlashcardsList(LearningProvider provider) {
     return ListView.builder(
+      shrinkWrap: true, // Added shrinkWrap: true to allow ListView to be inside SingleChildScrollView
+      physics: const NeverScrollableScrollPhysics(), // Disable ListView's own scrolling
       padding: const EdgeInsets.all(16),
       itemCount: provider.flashcardDecks.length,
       itemBuilder: (context, index) {
         final deck = provider.flashcardDecks[index];
-        return _buildFlashcardDeckCard(deck, provider, context);
+        return Dismissible(
+          key: Key(deck.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Sil',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          confirmDismiss: (direction) async {
+            return await _showDeleteConfirmation(context, deck, provider);
+          },
+          onDismissed: (direction) async {
+            final authProvider = context.read<AuthProvider>();
+            if (authProvider.currentUser != null) {
+              await provider.deleteFlashcardDeck(
+                authProvider.currentUser!.uid,
+                deck.id,
+              );
+            }
+          },
+          child: _buildFlashcardDeckCard(deck, provider, context),
+        );
       },
     );
   }
@@ -810,201 +836,19 @@ class _FlashcardsScreenState extends State<FlashcardsScreen> {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  void _showCreateFlashcardDialog(BuildContext context) {
-    showDialog(
+  Future<bool?> _showDeleteConfirmation(BuildContext context, FlashcardDeck deck, LearningProvider provider) {
+    return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Bilgi Kartları Oluştur'),
-        content: const Text('Konu veya doküman seçerek bilgi kartları oluşturun.'),
+        title: const Text('Bilgi Kartı Sil'),
+        content: Text('"${deck.title}" başlıklı bilgi kartını silmek istediğinizden emin misiniz?'),
         actions: [
           TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showCreateFromTopicDialog(context, context.read<LearningProvider>());
-            },
-            child: const Text('Konudan Oluştur'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showCreateFromDocumentDialog(context, context.read<LearningProvider>());
-            },
-            child: const Text('Dokümandan Oluştur'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCreateFromTopicDialog(BuildContext context, LearningProvider provider) {
-    final topicController = TextEditingController();
-    final titleController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Konudan Bilgi Kartları Oluştur'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: topicController,
-              decoration: const InputDecoration(
-                labelText: 'Konu',
-                hintText: 'Örn: Matematik, Tarih, Bilim...',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: titleController,
-              decoration: const InputDecoration(
-                labelText: 'Başlık',
-                hintText: 'Örn: Matematik Kartları',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('İptal'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              if (topicController.text.isNotEmpty && titleController.text.isNotEmpty) {
-                Navigator.pop(context);
-                final authProvider = context.read<AuthProvider>();
-                if (authProvider.currentUser != null) {
-                  await provider.createFlashcardsFromTopic(
-                    authProvider.currentUser!.uid,
-                    topicController.text,
-                    titleController.text,
-                  );
-                }
-              }
-            },
-            child: const Text('Oluştur'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCreateFromDocumentDialog(BuildContext context, LearningProvider provider, [Document? document]) {
-    final titleController = TextEditingController();
-    Document? selectedDocument = document;
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Dokümandan Bilgi Kartları Oluştur'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (document == null) ...[
-                DropdownButtonFormField<Document>(
-                  value: selectedDocument,
-                  decoration: const InputDecoration(
-                    labelText: 'Doküman Seç',
-                  ),
-                  items: provider.documents
-                      .where((doc) => doc.status == 'completed')
-                      .map((doc) => DropdownMenuItem(
-                            value: doc,
-                            child: Text(doc.fileName),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedDocument = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.description, color: AppColors.accentBlue, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          document.fileName,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.accentBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Başlık',
-                  hintText: 'Örn: Doküman Kartları',
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('İptal'),
-            ),
-            ElevatedButton(
-              onPressed: selectedDocument != null && titleController.text.isNotEmpty
-                  ? () async {
-                      Navigator.pop(context);
-                      final authProvider = context.read<AuthProvider>();
-                      if (authProvider.currentUser != null) {
-                        await provider.createFlashcardsFromDocument(
-                          authProvider.currentUser!.uid,
-                          selectedDocument!,
-                          titleController.text,
-                        );
-                      }
-                    }
-                  : null,
-              child: const Text('Oluştur'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context, FlashcardDeck deck, LearningProvider provider) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Bilgi Kartlarını Sil'),
-        content: Text('"${deck.title}" başlıklı bilgi kartlarını silmek istediğinizden emin misiniz?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
-          ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final authProvider = context.read<AuthProvider>();
-              if (authProvider.currentUser != null) {
-                await provider.deleteFlashcardDeck(
-                  authProvider.currentUser!.uid,
-                  deck.id,
-                );
-              }
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
             ),

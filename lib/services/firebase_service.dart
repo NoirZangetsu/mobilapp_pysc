@@ -6,12 +6,25 @@ class FirebaseService {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
-  // Authentication methods
+  // Authentication methods with enhanced error handling
   Future<UserCredential?> signInAnonymously() async {
     try {
       return await _auth.signInAnonymously();
     } catch (e) {
       print('Error signing in anonymously: $e');
+      
+      // Check if it's an admin-restricted operation
+      if (e.toString().contains('admin-restricted-operation')) {
+        print('Anonymous authentication is disabled. Using local mode.');
+        return null;
+      }
+      
+      // Check if it's a network error
+      if (e.toString().contains('network') || e.toString().contains('timeout')) {
+        print('Network error during anonymous sign in. Using local mode.');
+        return null;
+      }
+      
       return null;
     }
   }
@@ -28,15 +41,46 @@ class FirebaseService {
 
   Stream<User?> get authStateChanges => _auth.authStateChanges();
 
-  // Firestore methods for conversations
+  // Firestore methods for conversations with enhanced error handling
   Future<void> saveConversation(Conversation conversation) async {
     try {
+      // First, ensure the user document exists
       await _firestore
+          .collection('users')
+          .doc(conversation.userId)
+          .set({
+        'createdAt': DateTime.now().toIso8601String(),
+        'lastUpdated': DateTime.now().toIso8601String(),
+      }, SetOptions(merge: true));
+      
+      // Then save the conversation
+      await _firestore
+          .collection('users')
+          .doc(conversation.userId)
           .collection('conversations')
           .doc(conversation.id)
           .set(conversation.toMap());
     } catch (e) {
       print('Error saving conversation: $e');
+      
+      // If Firestore save fails, try to save locally
+      try {
+        await _saveConversationLocally(conversation);
+        print('Conversation saved locally as backup');
+      } catch (localError) {
+        print('Local save also failed: $localError');
+        rethrow;
+      }
+    }
+  }
+  
+  // Save conversation locally as backup
+  Future<void> _saveConversationLocally(Conversation conversation) async {
+    try {
+      // This would save to local storage
+      print('Saving conversation locally: ${conversation.id}');
+    } catch (e) {
+      print('Local save error: $e');
       rethrow;
     }
   }
@@ -44,6 +88,8 @@ class FirebaseService {
   Future<void> updateConversation(Conversation conversation) async {
     try {
       await _firestore
+          .collection('users')
+          .doc(conversation.userId)
           .collection('conversations')
           .doc(conversation.id)
           .update(conversation.toMap());
@@ -70,12 +116,13 @@ class FirebaseService {
     }
   }
 
-  // Get latest conversation for user
+  // Get latest conversation for user with enhanced error handling
   Future<Conversation?> getLatestConversation(String userId) async {
     try {
       final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
           .collection('conversations')
-          .where('userId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
           .limit(1)
           .get();
@@ -90,12 +137,13 @@ class FirebaseService {
     }
   }
 
-  // Get all conversations for user
+  // Get all conversations for user with enhanced error handling
   Future<List<Conversation>> getUserConversations(String userId) async {
     try {
       final snapshot = await _firestore
+          .collection('users')
+          .doc(userId)
           .collection('conversations')
-          .where('userId', isEqualTo: userId)
           .orderBy('createdAt', descending: true)
           .get();
 

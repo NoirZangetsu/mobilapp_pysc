@@ -31,6 +31,27 @@ class _ChatScreenState extends State<ChatScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ChatProvider>().initialize();
     });
+    
+    // Add keyboard listener to scroll to bottom when keyboard appears
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        if (keyboardHeight > 0) {
+          _scrollToBottom();
+        }
+      }
+    });
+    
+    // Add focus listener to scroll when text field is focused
+    _textFocusNode.addListener(() {
+      if (_textFocusNode.hasFocus) {
+        Future.delayed(const Duration(milliseconds: 300), () {
+          if (mounted) {
+            _scrollToBottom();
+          }
+        });
+      }
+    });
   }
 
   @override
@@ -134,6 +155,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.primaryBackground,
+      resizeToAvoidBottomInset: true,
       appBar: AppBar(
         backgroundColor: AppColors.surfaceBackground,
         elevation: 0,
@@ -163,30 +185,34 @@ class _ChatScreenState extends State<ChatScreen> {
       body: SafeArea(
         child: Consumer<ChatProvider>(
           builder: (context, chatProvider, child) {
-            return Column(
-              children: [
-                // Document context indicator
-                if (chatProvider.currentDocument != null)
-                  _buildDocumentContextIndicator(chatProvider),
-                
-                // Messages area
-                Expanded(
-                  child: chatProvider.messages.isEmpty
-                      ? _buildWelcomeMessage()
-                      : _buildMessagesList(chatProvider),
-                ),
-                
-                // Partial text indicator
-                if (chatProvider.partialText.isNotEmpty)
-                  _buildPartialTextIndicator(chatProvider.partialText),
-                
-                // Error display
-                if (chatProvider.error != null)
-                  _buildErrorDisplay(chatProvider.error!),
-                
-                // Input area
-                _buildInputArea(chatProvider),
-              ],
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                return Column(
+                  children: [
+                    // Document context indicator
+                    if (chatProvider.currentDocument != null)
+                      _buildDocumentContextIndicator(chatProvider),
+                    
+                    // Messages area - wrapped in Flexible to handle overflow
+                    Flexible(
+                      child: chatProvider.messages.isEmpty
+                          ? _buildWelcomeMessage()
+                          : _buildMessagesList(chatProvider),
+                    ),
+                    
+                    // Partial text indicator
+                    if (chatProvider.partialText.isNotEmpty)
+                      _buildPartialTextIndicator(chatProvider.partialText),
+                    
+                    // Error display
+                    if (chatProvider.error != null)
+                      _buildErrorDisplay(chatProvider.error!),
+                    
+                    // Input area
+                    _buildInputArea(chatProvider),
+                  ],
+                );
+              },
             );
           },
         ),
@@ -567,75 +593,77 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          // Quick action buttons
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildQuickActionButton(
-                  icon: Icons.image,
-                  label: 'Görüntü',
-                  onTap: _pickAndProcessImage,
-                  isLoading: _isProcessingImage,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.upload_file,
-                  label: 'PDF',
-                  onTap: _pickAndProcessPDF,
-                  isLoading: _isProcessingPDF,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.mic,
-                  label: 'Sesli',
-                  onTap: () {
-                    if (chatProvider.isListening) {
-                      chatProvider.stopListening();
-                    } else {
-                      chatProvider.startListening();
-                    }
-                  },
-                  isLoading: chatProvider.isListening,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.auto_awesome,
-                  label: 'AI Yardım',
-                  onTap: () {
-                    _textController.text = 'Merhaba, bana yardım edebilir misin?';
-                    _sendTextMessage();
-                  },
-                  isLoading: false,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.school,
-                  label: 'Flashcard',
-                  onTap: () {
-                    _showEducationalContentDialog('flashcard');
-                  },
-                  isLoading: false,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.mic,
-                  label: 'Podcast',
-                  onTap: () {
-                    _showEducationalContentDialog('podcast');
-                  },
-                  isLoading: false,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.summarize,
-                  label: 'Özet',
-                  onTap: () {
-                    _showEducationalContentDialog('summary');
-                  },
-                  isLoading: false,
-                ),
-              ],
+          // Quick action buttons - wrapped in Flexible to prevent overflow
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildQuickActionButton(
+                    icon: Icons.image,
+                    label: 'Görüntü',
+                    onTap: _pickAndProcessImage,
+                    isLoading: _isProcessingImage,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildQuickActionButton(
+                    icon: Icons.upload_file,
+                    label: 'PDF',
+                    onTap: _pickAndProcessPDF,
+                    isLoading: _isProcessingPDF,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildQuickActionButton(
+                    icon: Icons.mic,
+                    label: 'Sesli',
+                    onTap: () {
+                      if (chatProvider.isListening) {
+                        chatProvider.stopListening();
+                      } else {
+                        chatProvider.startListening();
+                      }
+                    },
+                    isLoading: chatProvider.isListening,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildQuickActionButton(
+                    icon: Icons.auto_awesome,
+                    label: 'AI Yardım',
+                    onTap: () {
+                      _textController.text = 'Merhaba, bana yardım edebilir misin?';
+                      _sendTextMessage();
+                    },
+                    isLoading: false,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildQuickActionButton(
+                    icon: Icons.school,
+                    label: 'Flashcard',
+                    onTap: () {
+                      _showEducationalContentDialog('flashcard');
+                    },
+                    isLoading: false,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildQuickActionButton(
+                    icon: Icons.mic,
+                    label: 'Podcast',
+                    onTap: () {
+                      _showEducationalContentDialog('podcast');
+                    },
+                    isLoading: false,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildQuickActionButton(
+                    icon: Icons.summarize,
+                    label: 'Özet',
+                    onTap: () {
+                      _showEducationalContentDialog('summary');
+                    },
+                    isLoading: false,
+                  ),
+                ],
+              ),
             ),
           ),
         ],

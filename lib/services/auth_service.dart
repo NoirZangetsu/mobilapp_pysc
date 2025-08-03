@@ -91,6 +91,49 @@ class AuthService {
     }
   }
 
+  // Anonymous Sign In with enhanced error handling
+  Future<UserCredential?> signInAnonymously() async {
+    try {
+      print('Attempting anonymous sign in...');
+      
+      // Check if anonymous auth is enabled in Firebase Console
+      UserCredential userCredential = await _auth.signInAnonymously();
+      
+      print('Anonymous sign in successful: ${userCredential.user?.uid}');
+      
+      // Create user document for anonymous user
+      try {
+        await _createOrUpdateUserDocument(userCredential.user!);
+        print('User document created/updated successfully');
+      } catch (docError) {
+        print('Error creating user document: $docError');
+        // Continue even if document creation fails
+      }
+      
+      return userCredential;
+    } catch (e) {
+      print('Anonymous sign in error: $e');
+      
+      // Check if it's an admin-restricted operation
+      if (e.toString().contains('admin-restricted-operation') || 
+          e.toString().contains('List<Object?>') ||
+          e.toString().contains('PigeonUserDetails')) {
+        print('Anonymous authentication is disabled or has configuration issues. Using local mode.');
+        return null; // Return null instead of throwing
+      }
+      
+      // Check if it's a network error
+      if (e.toString().contains('network') || e.toString().contains('timeout')) {
+        print('Network error during anonymous sign in. Using local mode.');
+        return null; // Return null instead of throwing
+      }
+      
+      // For other errors, provide a generic message and return null
+      print('Authentication failed. Using local mode.');
+      return null;
+    }
+  }
+
   // Password Reset
   Future<void> sendPasswordResetEmail(String email) async {
     try {
