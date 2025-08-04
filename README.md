@@ -184,18 +184,6 @@ flutter run
 
 ---
 
-## 🔧 API Konfigürasyonu
-
-### Google Gemini API
-1. [Google AI Studio](https://makersuite.google.com/app/apikey) adresine gidin
-2. Yeni API key oluşturun
-3. `.env` dosyasına `GEMINI_API_KEY` olarak ekleyin
-
-### Google TTS API
-1. [Google Cloud Console](https://console.cloud.google.com/) adresine gidin
-2. Text-to-Speech API'yi etkinleştirin
-3. API key oluşturun ve `.env` dosyasına ekleyin
-
 ### Firebase Kurulumu
 1. [Firebase Console](https://console.firebase.google.com/) adresine gidin
 2. Yeni proje oluşturun
