@@ -4,7 +4,6 @@ import 'dart:io';
 import '../models/podcast.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
-import 'package:path_provider/path_provider.dart';
 
 class PodcastPlayerScreen extends StatefulWidget {
   final Podcast podcast;

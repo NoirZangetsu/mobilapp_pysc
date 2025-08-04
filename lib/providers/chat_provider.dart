@@ -102,71 +102,37 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
-  // Process PDF file and set as current document with enhanced processing
-  Future<void> processPDFFile(String filePath, String userId) async {
-    final stopwatch = Stopwatch()..start();
-    
+  // Process PDF file
+  Future<void> processPDFFile(String filePath) async {
     try {
-      _isProcessing = true;
-      _error = null;
-      notifyListeners();
-
-      final document = await _documentService.processPDFFile(filePath, userId);
-      if (document != null) {
-        setCurrentDocument(document);
-        
-        // Add enhanced system message about document
-        final systemMessage = ConversationMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          content: '📄 PDF dosyası başarıyla yüklendi: **${document.fileName}**\n\n✅ Artık bu belge ile ilgili sorular sorabilirsin. AI, belge içeriğini analiz ederek detaylı yanıtlar verecek.',
-          isUser: false,
-          timestamp: DateTime.now(),
-          isSystemMessage: true,
-        );
-        _addMessageToContext(systemMessage);
-        
-        notifyListeners();
-      }
+      final document = await _documentService.extractTextFromPDFFile(File(filePath));
+      final message = ConversationMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        content: 'PDF dosyası işlendi: $document',
+        isUser: true,
+        timestamp: DateTime.now(),
+        isSystemMessage: true,
+      );
+      _addMessageToContext(message);
     } catch (e) {
-      _error = 'PDF işleme hatası: $e';
-      notifyListeners();
-    } finally {
-      _isProcessing = false;
-      notifyListeners();
+      _setError('PDF işleme hatası: $e');
     }
   }
 
-  // Process image file and set as current document with enhanced processing
-  Future<void> processImageFile(String filePath, String userId) async {
-    final stopwatch = Stopwatch()..start();
-    
+  // Process image file
+  Future<void> processImageFile(String filePath) async {
     try {
-      _isProcessing = true;
-      _error = null;
-      notifyListeners();
-
-      final document = await _documentService.processImageFile(filePath, userId);
-      if (document != null) {
-        setCurrentDocument(document);
-        
-        // Add enhanced system message about image
-        final systemMessage = ConversationMessage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          content: '🖼️ Görüntü dosyası başarıyla yüklendi: **${document.fileName}**\n\n✅ Artık bu görüntü ile ilgili sorular sorabilirsin. AI, görsel içeriği analiz ederek detaylı açıklamalar yapacak.',
-          isUser: false,
-          timestamp: DateTime.now(),
-          isSystemMessage: true,
-        );
-        _addMessageToContext(systemMessage);
-        
-        notifyListeners();
-      }
+      final document = await _documentService.extractTextFromImageFile(File(filePath));
+      final message = ConversationMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        content: 'Görüntü dosyası işlendi: $document',
+        isUser: true,
+        timestamp: DateTime.now(),
+        isSystemMessage: true,
+      );
+      _addMessageToContext(message);
     } catch (e) {
-      _error = 'Görüntü işleme hatası: $e';
-      notifyListeners();
-    } finally {
-      _isProcessing = false;
-      notifyListeners();
+      _setError('Görüntü işleme hatası: $e');
     }
   }
 
@@ -278,20 +244,23 @@ class ChatProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      await _speechService.startListening(
-        onResult: (text) {
-          _partialText = text;
-          notifyListeners();
-        },
-        onListeningComplete: () async {
-          _isListening = false;
-          if (_partialText.isNotEmpty) {
-            await _processUserMessage(_partialText);
-          }
-          _partialText = '';
-          notifyListeners();
-        },
-      );
+      await _speechService.startListening();
+      
+      // Listen to speech stream
+      _speechService.speechStream?.listen((text) {
+        _partialText = text;
+        notifyListeners();
+      });
+      
+      // Stop listening after 30 seconds
+      Future.delayed(const Duration(seconds: 30), () async {
+        await stopListening();
+        if (_partialText.isNotEmpty) {
+          await _processUserMessage(_partialText);
+        }
+        _partialText = '';
+        notifyListeners();
+      });
     } catch (e) {
       _error = 'Speech recognition failed: $e';
       _isListening = false;
@@ -754,5 +723,68 @@ class ChatProvider extends ChangeNotifier {
     _speechService.stopListening();
     _ttsService.stop();
     super.dispose();
+  }
+
+  // Initialize speech recognition
+  Future<void> _initializeSpeechRecognition() async {
+    try {
+      final isAvailable = await _speechService.isAvailable();
+      if (!isAvailable) {
+        print('Speech recognition not available');
+        return;
+      }
+      
+      final hasPermission = await _speechService.requestPermission();
+      if (!hasPermission) {
+        print('Microphone permission denied');
+        return;
+      }
+      
+      print('Speech recognition initialized');
+    } catch (e) {
+      print('Speech recognition initialization error: $e');
+    }
+  }
+
+  // Start speech recognition with callbacks
+  Future<void> startSpeechRecognitionWithCallbacks({
+    required Function(String text) onResult,
+    required Function() onListeningComplete,
+  }) async {
+    try {
+      await _speechService.startListening();
+      _isListening = true;
+      notifyListeners();
+      
+      // Listen to speech stream
+      _speechService.speechStream?.listen((text) {
+        onResult(text);
+      });
+      
+      // Stop listening after 30 seconds
+      Future.delayed(const Duration(seconds: 30), () {
+        stopSpeechRecognition();
+        onListeningComplete();
+      });
+    } catch (e) {
+      _setError('Ses tanıma hatası: $e');
+    }
+  }
+
+  // Set error message
+  void _setError(String error) {
+    _error = error;
+    notifyListeners();
+  }
+
+  // Stop speech recognition
+  Future<void> stopSpeechRecognition() async {
+    try {
+      await _speechService.stopListening();
+      _isListening = false;
+      notifyListeners();
+    } catch (e) {
+      _setError('Ses tanıma durdurma hatası: $e');
+    }
   }
 } 

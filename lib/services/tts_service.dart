@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:math' as Math;
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'google_tts_service.dart';
@@ -38,6 +37,11 @@ class TTSService {
     },
   };
 
+  TTSService() {
+    _flutterTts = FlutterTts();
+    _googleTTS = GoogleTTSService.instance;
+  }
+
   Future<void> initialize() async {
     try {
       if (_isInitialized) return;
@@ -68,7 +72,7 @@ class TTSService {
       }
       
       // Initialize Google TTS as backup
-      _googleTTS = GoogleTTSService();
+      _googleTTS = GoogleTTSService.instance;
       await _googleTTS!.initialize();
       
       _isInitialized = true;
@@ -144,19 +148,11 @@ class TTSService {
         print('Flutter TTS failed: $e');
       }
       
-      // Create fallback audio file
-      print('Creating fallback audio file...');
-      final fallbackAudio = _createRealAudioFile(text.length);
-      final file = File(filePath);
-      await file.writeAsBytes(fallbackAudio);
-      print('Fallback audio file created: $filePath');
-      print('Audio file size: ${await file.length()} bytes');
-      return filePath;
+      throw Exception('TTS service failed to generate audio');
       
     } catch (e) {
       print('Audio generation error: $e');
-      // Return a placeholder file path
-      return await _createPlaceholderAudio();
+      rethrow;
     }
   }
 
@@ -238,99 +234,12 @@ class TTSService {
           return null;
         }
       } else {
-        print('Google TTS file does not exist: $filePath');
+        print('Google TTS generated file does not exist: $filePath');
         return null;
       }
     } catch (e) {
       print('Google TTS audio generation error: $e');
       return null;
-    }
-  }
-
-  // Create a real audio file with proper WAV format
-  Uint8List _createRealAudioFile(int textLength) {
-    // Calculate duration based on text length (roughly 150 words per minute)
-    final wordsPerMinute = 150;
-    final words = textLength / 5; // Rough estimate: 5 characters per word
-    final durationSeconds = (words / wordsPerMinute * 60).round();
-    final finalDuration = Math.max(5, Math.min(durationSeconds, 300)); // 5-300 seconds
-    
-    // WAV file parameters
-    final sampleRate = 44100;
-    final channels = 1; // Mono
-    final bitsPerSample = 16;
-    final bytesPerSample = bitsPerSample ~/ 8;
-    final blockAlign = channels * bytesPerSample;
-    final byteRate = sampleRate * blockAlign;
-    final dataSize = sampleRate * finalDuration * blockAlign;
-    final fileSize = 44 + dataSize; // 44 bytes header + data
-    
-    // Create WAV header
-    final header = ByteData(44);
-    
-    // RIFF header
-    header.setUint32(0, 0x52494646, Endian.big); // "RIFF"
-    header.setUint32(4, fileSize - 8, Endian.little); // File size - 8
-    header.setUint32(8, 0x57415645, Endian.big); // "WAVE"
-    
-    // fmt chunk
-    header.setUint32(12, 0x666D7420, Endian.big); // "fmt "
-    header.setUint32(16, 16, Endian.little); // fmt chunk size
-    header.setUint16(20, 1, Endian.little); // Audio format (PCM)
-    header.setUint16(22, channels, Endian.little); // Channels
-    header.setUint32(24, sampleRate, Endian.little); // Sample rate
-    header.setUint32(28, byteRate, Endian.little); // Byte rate
-    header.setUint16(32, blockAlign, Endian.little); // Block align
-    header.setUint16(34, bitsPerSample, Endian.little); // Bits per sample
-    
-    // data chunk
-    header.setUint32(36, 0x64617461, Endian.big); // "data"
-    header.setUint32(40, dataSize, Endian.little); // Data size
-    
-    // Create audio data (simple sine wave)
-    final audioData = ByteData(dataSize);
-    final frequency = 440.0; // A4 note
-    final amplitude = 0.3;
-    
-    for (int i = 0; i < dataSize; i += 2) {
-      final sample = (i ~/ 2) / sampleRate.toDouble();
-      final sineValue = Math.sin(2 * Math.pi * frequency * sample);
-      final sampleValue = (sineValue * amplitude * 32767).round();
-      audioData.setUint16(i, sampleValue, Endian.little);
-    }
-    
-    // Combine header and audio data
-    final result = Uint8List(fileSize);
-    result.setRange(0, 44, header.buffer.asUint8List());
-    result.setRange(44, fileSize, audioData.buffer.asUint8List());
-    
-    print('Created real audio file with duration: ${finalDuration} seconds');
-    return result;
-  }
-
-  Future<String> _createPlaceholderAudio() async {
-    try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filename = 'podcast_placeholder_$timestamp.mp3';
-      
-      final directory = await getApplicationDocumentsDirectory();
-      final podcastDir = Directory('${directory.path}/podcasts');
-      
-      if (!await podcastDir.exists()) {
-        await podcastDir.create(recursive: true);
-      }
-      
-      final filePath = '${podcastDir.path}/$filename';
-      final placeholderAudio = _createRealAudioFile(100); // 100 characters = ~5 seconds
-      
-      final file = File(filePath);
-      await file.writeAsBytes(placeholderAudio);
-      
-      print('Placeholder audio created: $filePath');
-      return filePath;
-    } catch (e) {
-      print('Placeholder audio creation error: $e');
-      return 'placeholder_audio.mp3';
     }
   }
 

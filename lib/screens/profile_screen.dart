@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' hide AuthProvider;
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/learning_provider.dart';
+import '../services/settings_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
 
@@ -138,7 +139,7 @@ class ProfileScreen extends StatelessWidget {
           
           // User Name
           Text(
-            userData?.displayName ?? user?.displayName ?? 'Öğrenme Asistanı Kullanıcısı',
+            (userData is Map ? userData['displayName'] : null) ?? user?.displayName ?? 'Öğrenme Asistanı Kullanıcısı',
             style: AppTextStyles.headingMedium.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -611,45 +612,88 @@ class ProfileScreen extends StatelessWidget {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Ayarlar'),
+        backgroundColor: AppColors.surfaceBackground,
+        title: Text(
+          'Ayarlar',
+          style: AppTextStyles.headingSmall.copyWith(color: AppColors.headingText),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             ListTile(
               leading: const Icon(Icons.notifications, color: AppColors.accentBlue),
-              title: const Text('Bildirimler'),
-              subtitle: const Text('Bildirim ayarlarını yönet'),
+              title: Text(
+                'Bildirimler',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Bildirim ayarlarını yönet',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement notifications settings
+                _showNotificationsSettings(context);
               },
             ),
             ListTile(
               leading: const Icon(Icons.security, color: AppColors.accentBlue),
-              title: const Text('Güvenlik'),
-              subtitle: const Text('Şifre değiştir ve güvenlik ayarları'),
+              title: Text(
+                'Güvenlik',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Şifre değiştir ve güvenlik ayarları',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement security settings
+                _showSecuritySettings(context);
               },
             ),
             ListTile(
               leading: const Icon(Icons.privacy_tip, color: AppColors.accentBlue),
-              title: const Text('Gizlilik'),
-              subtitle: const Text('Gizlilik ayarlarını yönet'),
+              title: Text(
+                'Gizlilik',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Gizlilik ayarlarını yönet',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement privacy settings
+                _showPrivacySettings(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.download, color: AppColors.accentBlue),
+              title: Text(
+                'Verileri Dışa Aktar',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Kişisel verilerinizi indirin',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _exportUserData(context);
               },
             ),
             ListTile(
               leading: const Icon(Icons.help_outline, color: AppColors.accentBlue),
-              title: const Text('Yardım'),
-              subtitle: const Text('Kullanım kılavuzu ve destek'),
+              title: Text(
+                'Yardım',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Kullanım kılavuzu ve destek',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
               onTap: () {
                 Navigator.pop(context);
-                // TODO: Implement help section
+                _showHelpSection(context);
               },
             ),
           ],
@@ -657,10 +701,665 @@ class ProfileScreen extends StatelessWidget {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Kapat'),
+            child: Text(
+              'Kapat',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentBlue),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  void _showNotificationsSettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return FutureBuilder<Map<String, bool>>(
+            future: SettingsService().getNotificationSettings(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const AlertDialog(
+                  title: Text('Bildirim Ayarları'),
+                  content: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final settings = snapshot.data ?? {
+                'voice_notifications': true,
+                'flashcard_reminders': false,
+                'podcast_notifications': true,
+              };
+
+              return AlertDialog(
+                backgroundColor: AppColors.surfaceBackground,
+                title: Text(
+                  'Bildirim Ayarları',
+                  style: AppTextStyles.headingSmall.copyWith(color: AppColors.headingText),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      title: Text(
+                        'Sesli Bildirimler',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+                      ),
+                      subtitle: Text(
+                        'Sesli yanıtlar için bildirim al',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+                      ),
+                      value: settings['voice_notifications'] ?? true,
+                      onChanged: (value) {
+                        setState(() {
+                          settings['voice_notifications'] = value;
+                        });
+                        _updateNotificationSetting(context, 'voice_notifications', value);
+                      },
+                    ),
+                    SwitchListTile(
+                      title: Text(
+                        'Flashcard Hatırlatıcıları',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+                      ),
+                      subtitle: Text(
+                        'Günlük çalışma hatırlatıcıları',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+                      ),
+                      value: settings['flashcard_reminders'] ?? false,
+                      onChanged: (value) {
+                        setState(() {
+                          settings['flashcard_reminders'] = value;
+                        });
+                        _updateNotificationSetting(context, 'flashcard_reminders', value);
+                      },
+                    ),
+                    SwitchListTile(
+                      title: Text(
+                        'Podcast Bildirimleri',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+                      ),
+                      subtitle: Text(
+                        'Yeni podcast oluşturulduğunda bildir',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+                      ),
+                      value: settings['podcast_notifications'] ?? true,
+                      onChanged: (value) {
+                        setState(() {
+                          settings['podcast_notifications'] = value;
+                        });
+                        _updateNotificationSetting(context, 'podcast_notifications', value);
+                      },
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Kapat',
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentBlue),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _updateNotificationSetting(BuildContext context, String setting, bool value) async {
+    try {
+      final settingsService = SettingsService();
+      await settingsService.updateNotificationSetting(setting, value);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Bildirim ayarı güncellendi'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showSecuritySettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceBackground,
+        title: Text(
+          'Güvenlik Ayarları',
+          style: AppTextStyles.headingSmall.copyWith(color: AppColors.headingText),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.lock, color: AppColors.accentBlue),
+              title: Text(
+                'Şifre Değiştir',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Hesap şifrenizi güncelleyin',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showChangePasswordDialog(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.fingerprint, color: AppColors.accentBlue),
+              title: Text(
+                'Biometrik Giriş',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Parmak izi ile giriş yap',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showBiometricSettings(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.devices, color: AppColors.accentBlue),
+              title: Text(
+                'Cihaz Yönetimi',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Aktif oturumları görüntüle',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showDeviceManagement(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Kapat',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentBlue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacySettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) {
+          return FutureBuilder<Map<String, bool>>(
+            future: SettingsService().getPrivacySettings(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const AlertDialog(
+                  title: Text('Gizlilik Ayarları'),
+                  content: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              final settings = snapshot.data ?? {
+                'data_collection': true,
+                'analytics': false,
+                'personalization': true,
+              };
+
+              return AlertDialog(
+                backgroundColor: AppColors.surfaceBackground,
+                title: Text(
+                  'Gizlilik Ayarları',
+                  style: AppTextStyles.headingSmall.copyWith(color: AppColors.headingText),
+                ),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SwitchListTile(
+                      title: Text(
+                        'Veri Toplama',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+                      ),
+                      subtitle: Text(
+                        'Kullanım verilerini topla',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+                      ),
+                      value: settings['data_collection'] ?? true,
+                      onChanged: (value) {
+                        setState(() {
+                          settings['data_collection'] = value;
+                        });
+                        _updatePrivacySetting(context, 'data_collection', value);
+                      },
+                    ),
+                    SwitchListTile(
+                      title: Text(
+                        'Analitik',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+                      ),
+                      subtitle: Text(
+                        'Uygulama performansını analiz et',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+                      ),
+                      value: settings['analytics'] ?? false,
+                      onChanged: (value) {
+                        setState(() {
+                          settings['analytics'] = value;
+                        });
+                        _updatePrivacySetting(context, 'analytics', value);
+                      },
+                    ),
+                    SwitchListTile(
+                      title: Text(
+                        'Kişiselleştirme',
+                        style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+                      ),
+                      subtitle: Text(
+                        'Kişiselleştirilmiş içerik göster',
+                        style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+                      ),
+                      value: settings['personalization'] ?? true,
+                      onChanged: (value) {
+                        setState(() {
+                          settings['personalization'] = value;
+                        });
+                        _updatePrivacySetting(context, 'personalization', value);
+                      },
+                    ),
+                  ],
+                ),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: Text(
+                      'Kapat',
+                      style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentBlue),
+                    ),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  void _updatePrivacySetting(BuildContext context, String setting, bool value) async {
+    try {
+      final settingsService = SettingsService();
+      await settingsService.updatePrivacySetting(setting, value);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Gizlilik ayarı güncellendi'),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showHelpSection(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppColors.surfaceBackground,
+        title: Text(
+          'Yardım ve Destek',
+          style: AppTextStyles.headingSmall.copyWith(color: AppColors.headingText),
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.book, color: AppColors.accentBlue),
+              title: Text(
+                'Kullanım Kılavuzu',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Uygulama kullanım rehberi',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showUserGuide(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.question_answer, color: AppColors.accentBlue),
+              title: Text(
+                'Sık Sorulan Sorular',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Yaygın sorular ve cevaplar',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showFAQ(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.contact_support, color: AppColors.accentBlue),
+              title: Text(
+                'Destek Ekibi',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Teknik destek ile iletişim',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showContactSupport(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.bug_report, color: AppColors.accentBlue),
+              title: Text(
+                'Hata Bildir',
+                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
+              ),
+              subtitle: Text(
+                'Sorun bildir ve geri bildirim ver',
+                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _showBugReport(context);
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text(
+              'Kapat',
+              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentBlue),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showChangePasswordDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Şifre Değiştir'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBiometricSettings(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Biometrik Giriş'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeviceManagement(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Cihaz Yönetimi'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteDataDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Verileri Sil'),
+        content: const Text(
+          'Tüm kişisel verileriniz kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('İptal'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteUserData(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.error,
+            ),
+            child: const Text('Verileri Sil'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _deleteUserData(BuildContext context) async {
+    try {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Verileri Sil'),
+          content: const Text(
+            'Bu işlem geri alınamaz. Tüm verileriniz kalıcı olarak silinecektir. Devam etmek istediğinizden emin misiniz?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('İptal'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.error,
+              ),
+              child: const Text('Sil'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        final settingsService = SettingsService();
+        await settingsService.deleteUserData();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tüm verileriniz başarıyla silindi'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  void _showUserGuide(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kullanım Kılavuzu'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showFAQ(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Sık Sorulan Sorular'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showContactSupport(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Destek Ekibi'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBugReport(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Hata Bildir'),
+        content: const Text('Bu özellik yakında eklenecektir.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Tamam'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _exportUserData(BuildContext context) async {
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          title: Text('Veriler Dışa Aktarılıyor'),
+          content: Center(child: CircularProgressIndicator()),
+        ),
+      );
+
+      final settingsService = SettingsService();
+      final userData = await settingsService.exportUserData();
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      // Show success dialog with data summary
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Veriler Dışa Aktarıldı'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Podcast Sayısı: ${userData['podcasts']?.length ?? 0}'),
+              Text('Bilgi Kartı Sayısı: ${userData['flashcardDecks']?.length ?? 0}'),
+              Text('Doküman Sayısı: ${userData['documents']?.length ?? 0}'),
+              const SizedBox(height: 12),
+              const Text(
+                'Verileriniz başarıyla dışa aktarıldı. Bu verileri güvenli bir yerde saklayın.',
+                style: TextStyle(fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Tamam'),
+            ),
+          ],
+        ),
+      );
+    } catch (e) {
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Hata: $e'),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
   }
 } 

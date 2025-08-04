@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
-import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import '../providers/learning_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/podcast.dart';
-import '../models/document.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
 import 'podcast_player_screen.dart';
@@ -27,8 +25,32 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   
   // Enhanced podcast creation options
   String _selectedVoiceStyle = 'professional';
-  int _selectedDuration = 5; // minutes
+  String _selectedContentLength = 'detailed'; // 'summary', 'detailed', 'comprehensive'
   String _selectedLanguage = 'tr-TR';
+
+  // Content length options with descriptions
+  static const Map<String, Map<String, String>> _contentLengthOptions = {
+    'summary': {
+      'name': 'Özet',
+      'description': 'Kısa ve öz içerik (2-3 dakika)',
+      'icon': '📝',
+    },
+    'detailed': {
+      'name': 'Detaylı',
+      'description': 'Kapsamlı açıklama (5-7 dakika)',
+      'icon': '📚',
+    },
+    'comprehensive': {
+      'name': 'Bütün Konu',
+      'description': 'Tam kapsamlı içerik (10-15 dakika)',
+      'icon': '🎓',
+    },
+    'extended': {
+      'name': 'Genişletilmiş',
+      'description': 'Derinlemesine analiz (15-20 dakika)',
+      'icon': '🔬',
+    },
+  };
 
   @override
   void dispose() {
@@ -168,7 +190,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
           text, 
           authProvider.currentUser!.uid,
           voiceStyle: _selectedVoiceStyle,
-          duration: _selectedDuration,
+          contentLength: _selectedContentLength, // Changed to content length
           language: _selectedLanguage,
         );
         
@@ -364,7 +386,8 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                 icon: Icons.auto_awesome,
                 label: 'Otomatik',
                 onTap: () {
-                  _textController.text = 'Bu konu için $_selectedDuration dakikalık podcast oluştur';
+                  final contentName = _contentLengthOptions[_selectedContentLength]!['name']!;
+                  _textController.text = 'Bu konu için $contentName podcast oluştur';
                   _sendTextMessage();
                 },
                 isLoading: false,
@@ -373,7 +396,8 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                 icon: Icons.mic,
                 label: 'Eğitim',
                 onTap: () {
-                  _textController.text = 'Eğitim amaçlı $_selectedDuration dakikalık podcast oluştur';
+                  final contentName = _contentLengthOptions[_selectedContentLength]!['name']!;
+                  _textController.text = 'Eğitim amaçlı $contentName podcast oluştur';
                   _sendTextMessage();
                 },
                 isLoading: false,
@@ -382,7 +406,8 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                 icon: Icons.record_voice_over,
                 label: 'Sesli',
                 onTap: () {
-                  _textController.text = '$_selectedVoiceStyle ses tonuyla $_selectedDuration dakikalık podcast yap';
+                  final contentName = _contentLengthOptions[_selectedContentLength]!['name']!;
+                  _textController.text = '$_selectedVoiceStyle ses tonuyla $contentName podcast yap';
                   _sendTextMessage();
                 },
                 isLoading: false,
@@ -443,8 +468,8 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
             ),
             const SizedBox(width: 8),
             Expanded(
-              child: DropdownButtonFormField<int>(
-                value: _selectedDuration,
+              child: DropdownButtonFormField<String>(
+                value: _selectedContentLength,
                 decoration: InputDecoration(
                   filled: true,
                   fillColor: AppColors.inputBackground,
@@ -459,21 +484,57 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                 style: AppTextStyles.bodyMedium.copyWith(
                   color: AppColors.headingText, // White text color
                 ),
-                items: const [
-                  DropdownMenuItem(value: 3, child: Text('3 dakika', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 5, child: Text('5 dakika', style: TextStyle(color: Colors.white))),
-                  DropdownMenuItem(value: 10, child: Text('10 dakika', style: TextStyle(color: Colors.white))),
-                ],
+                items: _contentLengthOptions.entries.map((entry) {
+                  final option = entry.value;
+                  return DropdownMenuItem(
+                    value: entry.key,
+                    child: Text(
+                      '${option['icon']!} ${option['name']!}',
+                      style: const TextStyle(color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
                 onChanged: (value) {
                   if (value != null) {
                     setState(() {
-                      _selectedDuration = value;
+                      _selectedContentLength = value;
                     });
                   }
                 },
               ),
             ),
           ],
+        ),
+        const SizedBox(height: 8),
+        // Content length description
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.accentBlue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.accentBlue.withValues(alpha: 0.2),
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: AppColors.accentBlue,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _contentLengthOptions[_selectedContentLength]!['description']!,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );
@@ -567,10 +628,10 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
             ],
           ),
           const SizedBox(height: 4), // Reduced spacing
-          _buildExampleQuestion('"Matematik konuları için $_selectedDuration dakikalık podcast oluştur"'),
+          _buildExampleQuestion('"Matematik konuları için ${_contentLengthOptions[_selectedContentLength]!['name']} podcast oluştur"'),
           _buildExampleQuestion('"Tarih dersleri için $_selectedVoiceStyle ses tonuyla eğitim podcast\'i yap"'),
-          _buildExampleQuestion('"Bu PDF\'den $_selectedDuration dakikalık podcast oluştur"'),
-          _buildExampleQuestion('"Bilim konuları için $_selectedVoiceStyle ses tonuyla $_selectedDuration dakikalık eğitici podcast yap"'),
+          _buildExampleQuestion('"Bu PDF\'den ${_contentLengthOptions[_selectedContentLength]!['name']} podcast oluştur"'),
+          _buildExampleQuestion('"Bilim konuları için $_selectedVoiceStyle ses tonuyla ${_contentLengthOptions[_selectedContentLength]!['name']} podcast yap"'),
         ],
       ),
     );

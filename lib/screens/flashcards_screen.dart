@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
-import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import '../providers/learning_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/flashcard.dart';
-import '../models/document.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
 import 'flashcard_study_screen.dart';

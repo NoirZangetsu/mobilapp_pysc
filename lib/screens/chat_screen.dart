@@ -23,6 +23,7 @@ class _ChatScreenState extends State<ChatScreen> {
   bool _isProcessingPDF = false;
   bool _isProcessingImage = false;
   bool _isTyping = false;
+  bool _isKeyboardVisible = false;
   File? _selectedImageFile;
 
   @override
@@ -49,6 +50,16 @@ class _ChatScreenState extends State<ChatScreen> {
           if (mounted) {
             _scrollToBottom();
           }
+        });
+      }
+    });
+    
+    // Add keyboard visibility listener
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+        setState(() {
+          _isKeyboardVisible = keyboardHeight > 0;
         });
       }
     });
@@ -86,7 +97,6 @@ class _ChatScreenState extends State<ChatScreen> {
         if (authProvider.currentUser != null) {
           await context.read<ChatProvider>().processPDFFile(
             result.files.single.path!,
-            authProvider.currentUser!.uid,
           );
           
           _textController.text = 'Bu PDF hakkında ne sormak istiyorsun?';
@@ -151,8 +161,26 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollToBottom();
   }
 
+  bool get _isSmallScreen => MediaQuery.of(context).size.height < 600;
+  bool get _isVerySmallScreen => MediaQuery.of(context).size.height < 500;
+
+  void _updateKeyboardVisibility() {
+    if (mounted) {
+      final keyboardHeight = MediaQuery.of(context).viewInsets.bottom;
+      final newKeyboardVisible = keyboardHeight > 0;
+      if (_isKeyboardVisible != newKeyboardVisible) {
+        setState(() {
+          _isKeyboardVisible = newKeyboardVisible;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Update keyboard visibility
+    _updateKeyboardVisibility();
+    
     return Scaffold(
       backgroundColor: AppColors.primaryBackground,
       resizeToAvoidBottomInset: true,
@@ -193,8 +221,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (chatProvider.currentDocument != null)
                       _buildDocumentContextIndicator(chatProvider),
                     
-                    // Messages area - wrapped in Flexible to handle overflow
-                    Flexible(
+                    // Messages area - wrapped in Expanded to handle overflow properly
+                    Expanded(
                       child: chatProvider.messages.isEmpty
                           ? _buildWelcomeMessage()
                           : _buildMessagesList(chatProvider),
@@ -208,8 +236,15 @@ class _ChatScreenState extends State<ChatScreen> {
                     if (chatProvider.error != null)
                       _buildErrorDisplay(chatProvider.error!),
                     
-                    // Input area
-                    _buildInputArea(chatProvider),
+                    // Input area - wrapped in Container with proper constraints
+                    Container(
+                      constraints: BoxConstraints(
+                        maxHeight: _isKeyboardVisible 
+                            ? (_isVerySmallScreen ? 80.0 : 120.0) // Very compact for small screens
+                            : (_isSmallScreen ? 120.0 : 150.0), // Compact for small screens
+                      ),
+                      child: _buildInputArea(chatProvider),
+                    ),
                   ],
                 );
               },
@@ -221,82 +256,80 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildWelcomeMessage() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Animated icon container
-            Container(
-              width: 120,
-              height: 120,
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    AppColors.accentBlue.withValues(alpha: 0.2),
-                    AppColors.accentBlue.withValues(alpha: 0.1),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(60),
-                border: Border.all(
-                  color: AppColors.accentBlue.withValues(alpha: 0.3),
-                  width: 2,
-                ),
-              ),
-              child: const Icon(
-                Icons.chat_bubble_outline,
-                size: 60,
-                color: AppColors.accentBlue,
-              ),
-            ),
-            const SizedBox(height: 32),
-            Text(
-              'Merhaba! Ben senin öğrenme asistanın.',
-              style: AppTextStyles.headingSmall.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: AppColors.surfaceBackground,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: AppColors.borderLight,
-                ),
-              ),
-              child: Column(
-                children: [
-                  _buildFeatureItem(Icons.edit, 'Metin yazarak sorular sor'),
-                  const SizedBox(height: 8),
-                  _buildFeatureItem(Icons.mic, 'Sesli konuşma yap'),
-                  const SizedBox(height: 8),
-                  _buildFeatureItem(Icons.upload_file, 'PDF ve görüntü yükle'),
-                  const SizedBox(height: 8),
-                  _buildFeatureItem(Icons.auto_awesome, 'AI ile öğrenme içeriği oluştur'),
-                  const SizedBox(height: 8),
-                  _buildFeatureItem(Icons.visibility, 'Görsel analiz yap'),
-                  const SizedBox(height: 8),
-                  _buildFeatureItem(Icons.description, 'Belge içeriklerini analiz et'),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Animated icon container
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.accentBlue.withValues(alpha: 0.2),
+                  AppColors.accentBlue.withValues(alpha: 0.1),
                 ],
               ),
-            ),
-            const SizedBox(height: 24),
-            Text(
-              'Herhangi bir konuda soru sorabilirsin!',
-              style: AppTextStyles.bodyMedium.copyWith(
-                color: AppColors.secondaryText,
-                fontStyle: FontStyle.italic,
+              borderRadius: BorderRadius.circular(60),
+              border: Border.all(
+                color: AppColors.accentBlue.withValues(alpha: 0.3),
+                width: 2,
               ),
-              textAlign: TextAlign.center,
             ),
-          ],
-        ),
+            child: const Icon(
+              Icons.chat_bubble_outline,
+              size: 60,
+              color: AppColors.accentBlue,
+            ),
+          ),
+          const SizedBox(height: 24),
+          Text(
+            'Merhaba! Ben senin öğrenme asistanın.',
+            style: AppTextStyles.headingSmall.copyWith(
+              fontWeight: FontWeight.w600,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 16),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.surfaceBackground,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: AppColors.borderLight,
+              ),
+            ),
+            child: Column(
+              children: [
+                _buildFeatureItem(Icons.edit, 'Metin yazarak sorular sor'),
+                const SizedBox(height: 8),
+                _buildFeatureItem(Icons.mic, 'Sesli konuşma yap'),
+                const SizedBox(height: 8),
+                _buildFeatureItem(Icons.upload_file, 'PDF ve görüntü yükle'),
+                const SizedBox(height: 8),
+                _buildFeatureItem(Icons.auto_awesome, 'AI ile öğrenme içeriği oluştur'),
+                const SizedBox(height: 8),
+                _buildFeatureItem(Icons.visibility, 'Görsel analiz yap'),
+                const SizedBox(height: 8),
+                _buildFeatureItem(Icons.description, 'Belge içeriklerini analiz et'),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Herhangi bir konuda soru sorabilirsin!',
+            style: AppTextStyles.bodyMedium.copyWith(
+              color: AppColors.secondaryText,
+              fontStyle: FontStyle.italic,
+            ),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -517,9 +550,11 @@ class _ChatScreenState extends State<ChatScreen> {
             children: [
               Expanded(
                 child: Container(
-                  constraints: const BoxConstraints(
+                  constraints: BoxConstraints(
                     minHeight: 44,
-                    maxHeight: 100,
+                    maxHeight: _isKeyboardVisible 
+                        ? (_isVerySmallScreen ? 50 : 60) // Very compact for small screens
+                        : (_isSmallScreen ? 60 : 80), // Compact for small screens
                   ),
                   decoration: BoxDecoration(
                     color: AppColors.inputBackground,
@@ -593,79 +628,85 @@ class _ChatScreenState extends State<ChatScreen> {
             ],
           ),
           const SizedBox(height: 8),
-          // Quick action buttons - wrapped in Flexible to prevent overflow
-          Flexible(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildQuickActionButton(
-                    icon: Icons.image,
-                    label: 'Görüntü',
-                    onTap: _pickAndProcessImage,
-                    isLoading: _isProcessingImage,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickActionButton(
-                    icon: Icons.upload_file,
-                    label: 'PDF',
-                    onTap: _pickAndProcessPDF,
-                    isLoading: _isProcessingPDF,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickActionButton(
-                    icon: Icons.mic,
-                    label: 'Sesli',
-                    onTap: () {
-                      if (chatProvider.isListening) {
-                        chatProvider.stopListening();
-                      } else {
-                        chatProvider.startListening();
-                      }
-                    },
-                    isLoading: chatProvider.isListening,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickActionButton(
-                    icon: Icons.auto_awesome,
-                    label: 'AI Yardım',
-                    onTap: () {
-                      _textController.text = 'Merhaba, bana yardım edebilir misin?';
-                      _sendTextMessage();
-                    },
-                    isLoading: false,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickActionButton(
-                    icon: Icons.school,
-                    label: 'Flashcard',
-                    onTap: () {
-                      _showEducationalContentDialog('flashcard');
-                    },
-                    isLoading: false,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickActionButton(
-                    icon: Icons.mic,
-                    label: 'Podcast',
-                    onTap: () {
-                      _showEducationalContentDialog('podcast');
-                    },
-                    isLoading: false,
-                  ),
-                  const SizedBox(width: 6),
-                  _buildQuickActionButton(
-                    icon: Icons.summarize,
-                    label: 'Özet',
-                    onTap: () {
-                      _showEducationalContentDialog('summary');
-                    },
-                    isLoading: false,
-                  ),
-                ],
+          // Quick action buttons - only show when keyboard is not visible and there's enough space
+          if (!_isKeyboardVisible && !_isVerySmallScreen)
+            Container(
+              height: _isSmallScreen ? 32 : 40, // Smaller height for small screens
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _buildQuickActionButton(
+                          icon: Icons.image,
+                          label: 'Görüntü',
+                          onTap: _pickAndProcessImage,
+                          isLoading: _isProcessingImage,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.upload_file,
+                          label: 'PDF',
+                          onTap: _pickAndProcessPDF,
+                          isLoading: _isProcessingPDF,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.mic,
+                          label: 'Sesli',
+                          onTap: () {
+                            if (chatProvider.isListening) {
+                              chatProvider.stopListening();
+                            } else {
+                              chatProvider.startListening();
+                            }
+                          },
+                          isLoading: chatProvider.isListening,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.auto_awesome,
+                          label: 'AI Yardım',
+                          onTap: () {
+                            _textController.text = 'Merhaba, bana yardım edebilir misin?';
+                            _sendTextMessage();
+                          },
+                          isLoading: false,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.school,
+                          label: 'Flashcard',
+                          onTap: () {
+                            _showEducationalContentDialog('flashcard');
+                          },
+                          isLoading: false,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.mic,
+                          label: 'Podcast',
+                          onTap: () {
+                            _showEducationalContentDialog('podcast');
+                          },
+                          isLoading: false,
+                        ),
+                        const SizedBox(width: 6),
+                        _buildQuickActionButton(
+                          icon: Icons.summarize,
+                          label: 'Özet',
+                          onTap: () {
+                            _showEducationalContentDialog('summary');
+                          },
+                          isLoading: false,
+                        ),
+                      ],
+                    ),
+                  );
+                },
               ),
             ),
-          ),
         ],
       ),
     );
@@ -681,7 +722,10 @@ class _ChatScreenState extends State<ChatScreen> {
       onTap: isLoading ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding: EdgeInsets.symmetric(
+          horizontal: _isVerySmallScreen ? 6 : (MediaQuery.of(context).size.width < 400 ? 8 : 12), // More compact on very small screens
+          vertical: _isSmallScreen ? 6 : 8, // Smaller vertical padding for small screens
+        ),
         decoration: BoxDecoration(
           color: isLoading 
               ? AppColors.accentBlue.withValues(alpha: 0.3)
@@ -711,13 +755,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               )
             else
-              Icon(icon, size: 16, color: AppColors.accentBlue),
+              Icon(icon, size: _isVerySmallScreen ? 14 : 16, color: AppColors.accentBlue),
             const SizedBox(width: 6),
             Text(
               label,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.accentBlue,
                 fontWeight: FontWeight.w600,
+                fontSize: _isVerySmallScreen ? 10 : 12, // Smaller font for very small screens
               ),
             ),
           ],

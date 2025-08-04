@@ -1,83 +1,54 @@
-import 'package:speech_to_text/speech_to_text.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'dart:async';
 
 class SpeechService {
-  final SpeechToText _speechToText = SpeechToText();
-  bool _isInitialized = false;
+  bool _isListening = false;
+  bool _isAvailable = false;
+  StreamController<String>? _speechController;
 
-  Future<bool> initialize() async {
-    if (_isInitialized) return true;
-
-    try {
-      // Request microphone permission
-      final status = await Permission.microphone.request();
-      if (status != PermissionStatus.granted) {
-        print('Microphone permission denied');
-        return false;
-      }
-
-      _isInitialized = await _speechToText.initialize(
-        onError: (error) {
-          print('Speech recognition error: $error');
-        },
-        onStatus: (status) {
-          print('Speech recognition status: $status');
-        },
-      );
-
-      return _isInitialized;
-    } catch (e) {
-      print('Error initializing speech recognition: $e');
-      return false;
-    }
+  // Initialize speech service
+  Future<void> initialize() async {
+    _isAvailable = await isAvailable();
+    print('Speech service initialized: $_isAvailable');
   }
 
-  Future<void> startListening({
-    required Function(String text) onResult,
-    required Function() onListeningComplete,
-  }) async {
-    if (!_isInitialized) {
-      final initialized = await initialize();
-      if (!initialized) {
-        throw Exception('Speech recognition not initialized');
-      }
-    }
-
-    try {
-      await _speechToText.listen(
-        onResult: (result) {
-          if (result.finalResult) {
-            onResult(result.recognizedWords);
-            onListeningComplete();
-          }
-        },
-        listenFor: const Duration(seconds: 30),
-        pauseFor: const Duration(seconds: 3),
-        listenOptions: SpeechListenOptions(
-          partialResults: true,
-        ),
-        localeId: 'tr_TR', // Turkish locale
-      );
-    } catch (e) {
-      print('Error starting speech recognition: $e');
-      rethrow;
-    }
+  // Check if speech recognition is available
+  Future<bool> isAvailable() async {
+    // For now, return false as we don't have the speech_to_text package
+    return false;
   }
 
+  // Start listening
+  Future<void> startListening() async {
+    if (!await isAvailable()) {
+      throw Exception('Speech recognition is not available');
+    }
+    
+    _isListening = true;
+    _speechController = StreamController<String>();
+    print('Speech recognition started');
+  }
+
+  // Stop listening
   Future<void> stopListening() async {
-    try {
-      await _speechToText.stop();
-    } catch (e) {
-      print('Error stopping speech recognition: $e');
-    }
+    _isListening = false;
+    await _speechController?.close();
+    print('Speech recognition stopped');
   }
 
-  bool get isListening => _speechToText.isListening;
+  // Get speech stream
+  Stream<String>? get speechStream => _speechController?.stream;
 
-  bool get isAvailable => _speechToText.isAvailable;
+  // Check if currently listening
+  bool get isListening => _isListening;
 
-  Future<bool> requestPermissions() async {
-    final microphoneStatus = await Permission.microphone.request();
-    return microphoneStatus == PermissionStatus.granted;
+  // Request microphone permission
+  Future<bool> requestPermission() async {
+    // For now, return true as we don't have the permission_handler package
+    return true;
+  }
+
+  // Dispose resources
+  void dispose() {
+    _speechController?.close();
   }
 } 

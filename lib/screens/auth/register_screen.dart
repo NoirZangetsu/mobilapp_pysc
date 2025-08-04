@@ -252,7 +252,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       WidgetSpan(
                         child: GestureDetector(
                           onTap: () {
-                            // TODO: Navigate to Terms of Service
+                            _showTermsOfService(context);
                           },
                           child: Text(
                             'Kullanım Koşulları',
@@ -267,7 +267,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       WidgetSpan(
                         child: GestureDetector(
                           onTap: () {
-                            // TODO: Navigate to Privacy Policy
+                            _showPrivacyPolicy(context);
                           },
                           child: Text(
                             'Gizlilik Politikası',
@@ -371,5 +371,97 @@ class _RegisterScreenState extends State<RegisterScreen> {
         Navigator.pop(context);
       }
     }
+  }
+
+  void _showTermsOfService(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Kullanım Koşulları'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'EduVoice AI Kullanım Koşulları',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Bu uygulamayı kullanarak aşağıdaki koşulları kabul etmiş olursunuz:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              const Text('• Uygulama eğitim amaçlı kullanılmalıdır'),
+              const Text('• Kişisel verileriniz güvenle saklanacaktır'),
+              const Text('• Uygulama içeriği telif haklarına uygun olmalıdır'),
+              const Text('• Hizmet kesintileri olabilir'),
+              const Text('• Kullanım koşulları değişebilir'),
+              const SizedBox(height: 12),
+              const Text(
+                'Detaylı kullanım koşulları için lütfen web sitemizi ziyaret edin.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Anladım'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Gizlilik Politikası'),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'EduVoice AI Gizlilik Politikası',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'Kişisel verilerinizin korunması bizim için önemlidir:',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 8),
+              const Text('• Verileriniz şifreli olarak saklanır'),
+              const Text('• Üçüncü taraflarla paylaşılmaz'),
+              const Text('• Sadece hizmet kalitesi için kullanılır'),
+              const Text('• İstediğiniz zaman silinebilir'),
+              const Text('• GDPR uyumludur'),
+              const SizedBox(height: 12),
+              const Text(
+                'Detaylı gizlilik politikası için lütfen web sitemizi ziyaret edin.',
+                style: TextStyle(fontStyle: FontStyle.italic),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Anladım'),
+          ),
+        ],
+      ),
+    );
   }
 } 

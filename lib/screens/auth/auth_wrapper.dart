@@ -14,12 +14,19 @@ class AuthWrapper extends StatefulWidget {
 }
 
 class _AuthWrapperState extends State<AuthWrapper> {
+  bool _isInitialized = false;
+
   @override
   void initState() {
     super.initState();
     // Initialize auth provider
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      Provider.of<AuthProvider>(context, listen: false).initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Provider.of<AuthProvider>(context, listen: false).initialize();
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+        });
+      }
     });
   }
 
@@ -27,13 +34,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
       builder: (context, authProvider, child) {
-        // Show loading screen while checking auth state
-        if (authProvider.currentUser == null && !authProvider.isLoading) {
-          return const LoginScreen();
-        }
-
-        // Show loading indicator while processing
-        if (authProvider.isLoading) {
+        // Show loading screen while initializing
+        if (!_isInitialized || authProvider.isLoading) {
           return Scaffold(
             backgroundColor: AppColors.primaryBackground,
             body: Center(
@@ -57,11 +59,11 @@ class _AuthWrapperState extends State<AuthWrapper> {
         }
 
         // User is authenticated, show main app
-        if (authProvider.isAuthenticated) {
+        if (authProvider.isAuthenticated && authProvider.currentUser != null) {
           return const HomeScreen();
         }
 
-        // Default to login screen
+        // User is not authenticated, show login screen
         return const LoginScreen();
       },
     );

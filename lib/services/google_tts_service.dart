@@ -1,33 +1,18 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/env_config.dart';
 
 class GoogleTTSService {
-  static final GoogleTTSService _instance = GoogleTTSService._internal();
-  factory GoogleTTSService() => _instance;
-  GoogleTTSService._internal();
-
-  // Google Cloud TTS API Configuration
-  static const String _baseUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+  static GoogleTTSService? _instance;
+  static GoogleTTSService get instance => _instance ??= GoogleTTSService._();
   
-  // Get API key from environment variables
-  String get _apiKey {
-    final envKey = dotenv.env['GOOGLE_TTS_API_KEY'];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_GOOGLE_TTS_API_KEY') {
-      return envKey;
-    }
-    
-    // Try to use Gemini API key as fallback
-    final geminiKey = dotenv.env['GEMINI_API_KEY'];
-    if (geminiKey != null && geminiKey.isNotEmpty && geminiKey != 'YOUR_GEMINI_API_KEY') {
-      return geminiKey;
-    }
-    
-    throw Exception('GOOGLE_TTS_API_KEY environment variable is not configured. Please add it to your .env file.');
-  }
+  GoogleTTSService._();
+  
+  // API configuration
+  static const String _baseUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize';
+  static String get _apiKey => EnvConfig.googleTtsApiKey;
   
   // Enhanced voice configurations for Google TTS - Natural human-like speech
   static const Map<String, Map<String, dynamic>> _voiceConfigs = {
@@ -179,13 +164,19 @@ class GoogleTTSService {
             print('Google TTS audio file created successfully: $filePath');
             print('File size: ${audioBytes.length} bytes');
             
-            // For Google TTS, if we get a large file, it's likely valid
-            if (audioBytes.length > 1000) {
-              print('Google TTS audio file appears valid (large size)');
-              return filePath;
+            // Check if audio file was created and has reasonable size
+            final file = File(filePath);
+            if (await file.exists()) {
+              final fileSize = await file.length();
+              print('Google TTS audio file created: $filePath, size: $fileSize bytes');
+              
+              if (fileSize > 1000) { // Minimum file size check
+                return filePath;
+              } else {
+                throw Exception('Generated audio file is too small: $fileSize bytes');
+              }
             } else {
-              print('Google TTS audio file seems too small, trying fallback...');
-              return await _generateWithFallbackVoice(text, voiceStyle, language, speed);
+              throw Exception('Google TTS failed to create audio file');
             }
           } catch (writeError) {
             print('Error writing audio file: $writeError');
@@ -196,187 +187,17 @@ class GoogleTTSService {
         }
       } else {
         print('Google TTS API error: ${response.statusCode} - ${response.body}');
-        
-        // Try with a different voice if the current one fails
-        if (response.statusCode == 400) {
-          print('Trying with fallback voice configuration...');
-          return await _generateWithFallbackVoice(text, voiceStyle, language, speed);
-        }
-        
         throw Exception('Google TTS API request failed: ${response.statusCode}');
       }
     } catch (e) {
       print('Google TTS generation error: $e');
-      // Return placeholder audio as fallback
-      return await _generatePlaceholderAudio();
+      rethrow;
     }
   }
 
-  // Generate with fallback voice configuration
-  Future<String> _generateWithFallbackVoice(
-    String text,
-    String voiceStyle,
-    String language,
-    double? speed,
-  ) async {
-    try {
-      // Use a simpler voice configuration
-      final fallbackConfig = {
-        'name': 'tr-TR-Standard-A',
-        'languageCode': 'tr-TR',
-        'speakingRate': 1.0,
-        'volumeGainDb': 0.0,
-      };
-      
-      final requestBody = {
-        'input': {
-          'text': text,
-        },
-        'voice': {
-          'languageCode': fallbackConfig['languageCode'],
-          'name': fallbackConfig['name'],
-        },
-        'audioConfig': {
-          'audioEncoding': 'MP3',
-          'speakingRate': speed ?? fallbackConfig['speakingRate'],
-          'volumeGainDb': fallbackConfig['volumeGainDb'],
-        },
-      };
-
-      print('Trying fallback voice: ${fallbackConfig['name']}');
-
-      final response = await http.post(
-        Uri.parse('$_baseUrl?key=$_apiKey'),
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: json.encode(requestBody),
-      );
-
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        final audioContent = data['audioContent'];
-        
-        if (audioContent != null) {
-          final audioBytes = base64.decode(audioContent);
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final filename = 'podcast_fallback_$timestamp.mp3';
-          
-          final directory = await getApplicationDocumentsDirectory();
-          final podcastDir = Directory('${directory.path}/podcasts');
-          
-          if (!await podcastDir.exists()) {
-            await podcastDir.create(recursive: true);
-          }
-          
-          final filePath = '${podcastDir.path}/$filename';
-          final audioFile = File(filePath);
-          
-          await audioFile.writeAsBytes(audioBytes);
-          print('Fallback voice audio created: $filePath');
-          
-          // For fallback voice, if we get a large file, it's likely valid
-          if (audioBytes.length > 1000) {
-            print('Fallback audio file appears valid (large size)');
-            return filePath;
-          } else {
-            print('Fallback audio file seems too small');
-            return await _generatePlaceholderAudio();
-          }
-        }
-      }
-      
-      throw Exception('Fallback voice also failed');
-    } catch (e) {
-      print('Fallback voice error: $e');
-      return await _generatePlaceholderAudio();
-    }
-  }
-
-  // Generate placeholder audio as fallback
-  Future<String> _generatePlaceholderAudio() async {
-    try {
-      // Create a unique filename
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filename = 'podcast_placeholder_$timestamp.mp3';
-      
-      // Get app documents directory
-      final directory = await getApplicationDocumentsDirectory();
-      final podcastDir = Directory('${directory.path}/podcasts');
-      
-      // Create directory if it doesn't exist
-      if (!await podcastDir.exists()) {
-        await podcastDir.create(recursive: true);
-      }
-      
-      final filePath = '${podcastDir.path}/$filename';
-      final audioFile = File(filePath);
-      
-      // Create simple MP3 placeholder (silence)
-      final placeholderAudioBytes = _createPlaceholderMP3();
-      await audioFile.writeAsBytes(placeholderAudioBytes);
-      
-      print('Placeholder audio created: $filePath');
-      return filePath;
-    } catch (e) {
-      print('Placeholder audio creation error: $e');
-      return 'placeholder_audio.mp3';
-    }
-  }
-
-  // Create placeholder MP3 file (silence)
-  Uint8List _createPlaceholderMP3() {
-    // Create a more realistic placeholder MP3 file
-    // This is a minimal MP3 file with proper header structure
-    final List<int> mp3Header = [
-      // MP3 frame header (Layer 3, 44.1kHz, 128kbps, Stereo)
-      0xFF, 0xFB, 0x90, 0x44,
-      
-      // MPEG-1 Layer 3 frame data (simplified)
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      
-      // Additional frame for longer placeholder
-      0xFF, 0xFB, 0x90, 0x44,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-      0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-    ];
-    
-    return Uint8List.fromList(mp3Header);
-  }
-
-  // Validate audio file
-  Future<bool> _validateAudioFile(String filePath) async {
-    try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        print('Audio file does not exist: $filePath');
-        return false;
-      }
-      
-      final fileSize = await file.length();
-      if (fileSize < 100) {
-        print('Audio file is too small: $fileSize bytes');
-        return false;
-      }
-      
-      // For Google TTS, we just check if the file exists and has reasonable size
-      // Google TTS generates valid MP3 files, so we don't need to check headers
-      if (fileSize > 1000) {
-        print('Audio file appears to be valid (size: $fileSize bytes)');
-        return true;
-      } else {
-        print('Audio file is too small to be valid: $fileSize bytes');
-        return false;
-      }
-    } catch (e) {
-      print('Audio validation error: $e');
-      return false;
-    }
+  // Get voice configuration
+  Map<String, dynamic> getVoiceConfig(String voiceStyle) {
+    return _voiceConfigs[voiceStyle] ?? _voiceConfigs['professional']!;
   }
 
   // Get available voices from Google TTS
@@ -411,48 +232,6 @@ class GoogleTTSService {
       print('Error getting voices: $e');
       return [];
     }
-  }
-
-  // Get available languages
-  Future<List<Map<String, String>>> getAvailableLanguages() async {
-    try {
-      final voices = await getAvailableVoices();
-      final languages = <String, String>{};
-      
-      for (final voice in voices) {
-        final languageCode = voice['languageCode'] as String;
-        final languageName = _getLanguageName(languageCode);
-        languages[languageCode] = languageName;
-      }
-      
-      return languages.entries.map((entry) => {
-        'code': entry.key,
-        'name': entry.value,
-      }).toList();
-    } catch (e) {
-      print('Error getting languages: $e');
-      return [];
-    }
-  }
-
-  // Get language name from code
-  String _getLanguageName(String languageCode) {
-    final languageNames = {
-      'tr-TR': 'Türkçe',
-      'en-US': 'English (US)',
-      'en-GB': 'English (UK)',
-      'de-DE': 'Deutsch',
-      'fr-FR': 'Français',
-      'es-ES': 'Español',
-      'it-IT': 'Italiano',
-      'pt-BR': 'Português (Brasil)',
-      'ru-RU': 'Русский',
-      'ja-JP': '日本語',
-      'ko-KR': '한국어',
-      'zh-CN': '中文 (简体)',
-    };
-    
-    return languageNames[languageCode] ?? languageCode;
   }
 
   // Check if TTS is available
@@ -498,11 +277,6 @@ class GoogleTTSService {
       print('API validation error: $e');
       return false;
     }
-  }
-
-  // Get voice configuration
-  Map<String, dynamic> getVoiceConfig(String voiceStyle) {
-    return _voiceConfigs[voiceStyle] ?? _voiceConfigs['professional']!;
   }
 
   // Get available Turkish voices

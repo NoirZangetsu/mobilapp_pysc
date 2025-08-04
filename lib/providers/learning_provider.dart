@@ -7,7 +7,6 @@ import '../services/document_service.dart';
 import '../services/flashcard_service.dart';
 import '../services/podcast_service.dart';
 import 'package:flutter/material.dart'; // Added for context.read
-import '../providers/auth_provider.dart'; // Added for AuthProvider
 import 'package:cloud_firestore/cloud_firestore.dart'; // Added for Firestore
 
 class LearningProvider extends ChangeNotifier {
@@ -114,61 +113,80 @@ class LearningProvider extends ChangeNotifier {
     try {
       print('LearningProvider: Loading user data for $userId');
       
-      // Try to load from Firestore first
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      
-      if (userDoc.exists) {
-        // Load podcasts
-        final podcastsSnapshot = await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('podcasts')
-            .orderBy('createdAt', descending: true)
-            .get();
-        
-        _podcasts = podcastsSnapshot.docs
-            .map((doc) => Podcast.fromMap(doc.data()))
-            .toList();
-        
-        print('LearningProvider: Loaded ${_podcasts.length} podcasts from Firestore');
-        
-        // Load flashcard decks
-        final flashcardSnapshot = await _firestore
-            .collection('users')
-            .doc(userId)
-            .collection('flashcardDecks')
-            .orderBy('createdAt', descending: true)
-            .get();
-        
-        _flashcardDecks = flashcardSnapshot.docs
-            .map((doc) => FlashcardDeck.fromMap(doc.data()))
-            .toList();
-        
-        print('LearningProvider: Loaded ${_flashcardDecks.length} flashcard decks from Firestore');
-        
-        notifyListeners();
-      } else {
-        print('LearningProvider: User document not found, creating new user');
-        // Create user document if it doesn't exist
-        await _firestore.collection('users').doc(userId).set({
-          'createdAt': DateTime.now().toIso8601String(),
-          'lastActive': DateTime.now().toIso8601String(),
-        });
-      }
+      // Load data from Firestore
+      await _loadPodcastsFromFirestore(userId);
+      await _loadDocumentsFromFirestore(userId);
+      await _loadFlashcardDecksFromFirestore(userId);
     } catch (e) {
-      print('LearningProvider: loadUserData error: $e');
-      _flashcardError = 'Veri yükleme hatası: $e';
-      _podcastError = 'Veri yükleme hatası: $e';
-      notifyListeners();
+      print('Error loading data: $e');
+      rethrow;
     }
   }
 
-  // Load data from local storage as fallback
-  Future<void> _loadFromLocalStorage(String userId) async {
-    // For now, initialize empty lists since we don't have local storage implementation
-    // In a real implementation, you would load from SharedPreferences or similar
-    _podcasts = [];
-    _flashcardDecks = [];
+  // Load podcasts from Firestore
+  Future<void> _loadPodcastsFromFirestore(String userId) async {
+    try {
+      final podcastsSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('podcasts')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      _podcasts = podcastsSnapshot.docs
+          .map((doc) => Podcast.fromMap(doc.data()))
+          .toList();
+      
+      print('LearningProvider: Loaded ${_podcasts.length} podcasts from Firestore');
+      notifyListeners();
+    } catch (e) {
+      print('Error loading podcasts: $e');
+      rethrow;
+    }
+  }
+
+  // Load documents from Firestore
+  Future<void> _loadDocumentsFromFirestore(String userId) async {
+    try {
+      final documentsSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('documents')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      _documents = documentsSnapshot.docs
+          .map((doc) => Document.fromMap(doc.data()))
+          .toList();
+      
+      print('LearningProvider: Loaded ${_documents.length} documents from Firestore');
+      notifyListeners();
+    } catch (e) {
+      print('Error loading documents: $e');
+      rethrow;
+    }
+  }
+
+  // Load flashcard decks from Firestore
+  Future<void> _loadFlashcardDecksFromFirestore(String userId) async {
+    try {
+      final flashcardSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('flashcardDecks')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      _flashcardDecks = flashcardSnapshot.docs
+          .map((doc) => FlashcardDeck.fromMap(doc.data()))
+          .toList();
+      
+      print('LearningProvider: Loaded ${_flashcardDecks.length} flashcard decks from Firestore');
+      notifyListeners();
+    } catch (e) {
+      print('Error loading flashcard decks: $e');
+      rethrow;
+    }
   }
 
   // Process PDF file (without saving)
@@ -260,12 +278,14 @@ class LearningProvider extends ChangeNotifier {
     }
   }
 
-  // Process podcast request from AI assistant
+  // Process podcast request
   Future<void> processPodcastRequest(
-    String request, 
-    String userId, 
-    {String voiceStyle = 'professional', int duration = 5, String language = 'tr-TR'}
-  ) async {
+    String text,
+    String userId, {
+    String voiceStyle = 'professional',
+    String contentLength = 'detailed',
+    String language = 'tr-TR',
+  }) async {
     try {
       _isCreatingPodcast = true;
       _podcastError = null;
@@ -274,11 +294,11 @@ class LearningProvider extends ChangeNotifier {
       // Parse the request and create podcast with enhanced options
       await createPodcastFromTopic(
         userId,
-        request,
+        text,
         'Podcast', // Simplified title
         voiceStyle: voiceStyle,
         language: language,
-        duration: duration,
+        contentLength: contentLength,
       );
 
       _isCreatingPodcast = false;
@@ -355,7 +375,7 @@ class LearningProvider extends ChangeNotifier {
     String userId,
     String topic,
     String title,
-    {String voiceStyle = 'professional', String language = 'tr-TR', int duration = 5}
+    {String voiceStyle = 'professional', String language = 'tr-TR', String contentLength = 'detailed'}
   ) async {
     try {
       _isCreatingPodcast = true;
@@ -370,7 +390,7 @@ class LearningProvider extends ChangeNotifier {
         title,
         voiceStyle: voiceStyle,
         language: language,
-        duration: duration,
+        contentLength: contentLength,
       );
 
       print('Podcast created successfully: ${podcast.title}');

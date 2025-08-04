@@ -1,100 +1,40 @@
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class EnvConfig {
-  static const String _geminiApiKeyEnv = 'GEMINI_API_KEY';
-  static const String _firebaseApiKeyEnv = 'FIREBASE_API_KEY';
-  static const String _firebaseAppIdEnv = 'FIREBASE_APP_ID';
-  static const String _firebaseProjectIdEnv = 'FIREBASE_PROJECT_ID';
-  static const String _firebaseSenderIdEnv = 'FIREBASE_SENDER_ID';
-  static const String _firebaseStorageBucketEnv = 'FIREBASE_STORAGE_BUCKET';
-
-  // Gemini API Configuration
-  static String get geminiApiKey {
-    final envKey = dotenv.env[_geminiApiKeyEnv];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_GEMINI_API_KEY') {
-      return envKey;
-    }
-    
-    // Secure fallback - don't expose actual keys in code
-    throw Exception('GEMINI_API_KEY environment variable is not configured. Please add it to your .env file.');
-  }
-
-  // Firebase Configuration
-  static String get firebaseApiKey {
-    final envKey = dotenv.env[_firebaseApiKeyEnv];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_FIREBASE_API_KEY') {
-      return envKey;
-    }
-    
-    throw Exception('FIREBASE_API_KEY environment variable is not configured. Please add it to your .env file.');
-  }
-
-  static String get firebaseAppId {
-    final envKey = dotenv.env[_firebaseAppIdEnv];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_FIREBASE_APP_ID') {
-      return envKey;
-    }
-    
-    throw Exception('FIREBASE_APP_ID environment variable is not configured. Please add it to your .env file.');
-  }
-
-  static String get firebaseProjectId {
-    final envKey = dotenv.env[_firebaseProjectIdEnv];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_FIREBASE_PROJECT_ID') {
-      return envKey;
-    }
-    
-    throw Exception('FIREBASE_PROJECT_ID environment variable is not configured. Please add it to your .env file.');
-  }
-
-  static String get firebaseSenderId {
-    final envKey = dotenv.env[_firebaseSenderIdEnv];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_FIREBASE_SENDER_ID') {
-      return envKey;
-    }
-    
-    throw Exception('FIREBASE_SENDER_ID environment variable is not configured. Please add it to your .env file.');
-  }
-
-  static String get firebaseStorageBucket {
-    final envKey = dotenv.env[_firebaseStorageBucketEnv];
-    if (envKey != null && envKey.isNotEmpty && envKey != 'YOUR_FIREBASE_STORAGE_BUCKET') {
-      return envKey;
-    }
-    
-    throw Exception('FIREBASE_STORAGE_BUCKET environment variable is not configured. Please add it to your .env file.');
-  }
+  // API Keys - Load from environment variables
+  static String get geminiApiKey => dotenv.env['GEMINI_API_KEY'] ?? '';
+  static String get googleTtsApiKey => dotenv.env['GOOGLE_TTS_API_KEY'] ?? '';
+  
+  // Firebase configuration
+  static String get firebaseProjectId => dotenv.env['FIREBASE_PROJECT_ID'] ?? '';
+  static String get firebaseApiKey => dotenv.env['FIREBASE_API_KEY'] ?? '';
+  static String get firebaseAppId => dotenv.env['FIREBASE_APP_ID'] ?? '';
+  static String get firebaseMessagingSenderId => dotenv.env['FIREBASE_SENDER_ID'] ?? '';
+  static String get firebaseSenderId => dotenv.env['FIREBASE_SENDER_ID'] ?? '';
+  static String get firebaseStorageBucket => dotenv.env['FIREBASE_STORAGE_BUCKET'] ?? '';
+  
+  // App configuration
+  static const String appName = 'EduVoice AI';
+  static const String appVersion = '1.0.0';
+  static const String appDescription = 'AI-powered educational voice assistant';
+  
+  // Feature flags
+  static const bool enableTTS = true;
+  static const bool enablePodcastCreation = true;
+  static const bool enableFlashcardCreation = true;
+  static const bool enableDocumentProcessing = true;
 
   // Validation methods
   static bool get isGeminiConfigured {
-    try {
-      final key = geminiApiKey;
-      return key.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
+    return geminiApiKey.isNotEmpty && geminiApiKey != 'YOUR_GEMINI_API_KEY';
   }
 
   static bool get isFirebaseConfigured {
-    try {
-      final apiKey = firebaseApiKey;
-      final appId = firebaseAppId;
-      final projectId = firebaseProjectId;
-      return apiKey.isNotEmpty && appId.isNotEmpty && projectId.isNotEmpty;
-    } catch (e) {
-      return false;
-    }
-  }
-
-  // Get all environment variables for debugging (without exposing actual keys)
-  static Map<String, String> get allEnvVars {
-    return {
-      'GEMINI_API_KEY': isGeminiConfigured ? '***CONFIGURED***' : '***NOT_CONFIGURED***',
-      'FIREBASE_API_KEY': isFirebaseConfigured ? '***CONFIGURED***' : '***NOT_CONFIGURED***',
-      'FIREBASE_APP_ID': isFirebaseConfigured ? '***CONFIGURED***' : '***NOT_CONFIGURED***',
-      'FIREBASE_PROJECT_ID': isFirebaseConfigured ? '***CONFIGURED***' : '***NOT_CONFIGURED***',
-      'FIREBASE_SENDER_ID': isFirebaseConfigured ? '***CONFIGURED***' : '***NOT_CONFIGURED***',
-      'FIREBASE_STORAGE_BUCKET': isFirebaseConfigured ? '***CONFIGURED***' : '***NOT_CONFIGURED***',
-    };
+    return firebaseApiKey.isNotEmpty && 
+           firebaseAppId.isNotEmpty && 
+           firebaseProjectId.isNotEmpty &&
+           firebaseApiKey != 'YOUR_FIREBASE_API_KEY' &&
+           firebaseAppId != 'YOUR_FIREBASE_APP_ID' &&
+           firebaseProjectId != 'YOUR_FIREBASE_PROJECT_ID';
   }
 } 

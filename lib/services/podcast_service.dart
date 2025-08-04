@@ -2,12 +2,12 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
 import '../models/podcast.dart';
 import '../models/document.dart';
 import 'gemini_service.dart';
 import 'tts_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 class PodcastService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -47,7 +47,7 @@ class PodcastService {
     String userId,
     String topic,
     String title,
-    {String voiceStyle = 'professional', String language = 'tr-TR', int duration = 5, String podcastType = 'educational'}
+    {String voiceStyle = 'professional', String language = 'tr-TR', String contentLength = 'detailed', String podcastType = 'educational'}
   ) async {
     try {
       print('=== Starting podcast creation ===');
@@ -56,13 +56,41 @@ class PodcastService {
       print('Title: $title');
       print('Voice Style: $voiceStyle');
       print('Language: $language');
-      print('Duration: $duration minutes');
+      print('Content Length: $contentLength');
       print('Podcast Type: $podcastType');
 
       // Validate inputs
       if (topic.trim().isEmpty) {
         throw Exception('Topic cannot be empty');
       }
+
+      // Enhanced word count calculation based on content length
+      int minWords;
+      int maxWords;
+      
+      switch (contentLength) {
+        case 'summary':
+          minWords = 300; // ~2-3 minutes
+          maxWords = 450;
+          break;
+        case 'detailed':
+          minWords = 750; // ~5-7 minutes
+          maxWords = 1050;
+          break;
+        case 'comprehensive':
+          minWords = 1500; // ~10-15 minutes
+          maxWords = 2250;
+          break;
+        case 'extended':
+          minWords = 2250; // ~15-20 minutes
+          maxWords = 3000;
+          break;
+        default:
+          minWords = 750;
+          maxWords = 1050;
+      }
+
+      print('Word range: $minWords - $maxWords words');
 
       // Get podcast type configuration
       final typeConfig = _podcastTypes[podcastType] ?? _podcastTypes['educational']!;
@@ -74,9 +102,11 @@ class PodcastService {
         topic,
         title,
         typeConfig,
-        duration,
+        minWords,
+        maxWords,
         voiceStyle,
         language,
+        contentLength,
       );
 
       // Validate generated content
@@ -89,16 +119,17 @@ class PodcastService {
 
       // Generate audio from script
       print('Generating audio from script...');
-      final audioUrl = await _uploadAudioToStorage(
+      final audioResult = await _uploadAudioToStorage(
         podcastData['script'],
         voiceStyle,
         language,
       );
 
-      print('Audio generated successfully: $audioUrl');
+      print('Audio generated successfully: ${audioResult['url']}');
+      print('Actual duration: ${audioResult['duration'].inSeconds} seconds');
 
-      // Create podcast object with calculated duration
-      final estimatedDuration = Duration(minutes: duration); // Use requested duration
+      // Create podcast object with actual duration
+      final actualDuration = audioResult['duration'] as Duration;
       
       final podcast = Podcast(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
@@ -107,8 +138,8 @@ class PodcastService {
         description: podcastData['description'] ?? '$topic konusu hakkında oluşturulan podcast',
         sourceType: 'topic',
         sourceId: topic,
-        audioUrl: audioUrl,
-        duration: estimatedDuration, // Use requested duration
+        audioUrl: audioResult['url'] as String,
+        duration: actualDuration, // Use actual duration from audio file
         createdAt: DateTime.now(),
         voiceStyle: voiceStyle,
         language: language,
@@ -119,7 +150,7 @@ class PodcastService {
       print('Podcast object created with ID: ${podcast.id}');
       print('Final title: ${podcast.title}');
       print('Final description: ${podcast.description}');
-      print('Duration: ${estimatedDuration.inMinutes} minutes');
+      print('Actual duration: ${actualDuration.inMinutes}:${(actualDuration.inSeconds % 60).toString().padLeft(2, '0')}');
       print('Script saved: ${podcast.script?.length ?? 0} characters');
 
       // Save to Firestore with error handling
@@ -147,31 +178,45 @@ class PodcastService {
     String topic,
     String title,
     Map<String, dynamic> typeConfig,
-    int duration,
+    int minWords,
+    int maxWords,
     String voiceStyle,
     String language,
+    String contentLength,
   ) async {
     try {
-      // Create enhanced prompt for more natural speech
+      // Create enhanced prompt for more natural speech with length control
       final prompt = '''
 Create a natural, conversational podcast about "$topic" with the title "$title".
 
-Requirements:
-- Duration: ${duration} minutes
+REQUIREMENTS:
+- Content Length: $contentLength ($minWords-$maxWords words)
 - Type: ${typeConfig['name']}
 - Structure: ${typeConfig['structure'].join(', ')}
 - Tone: ${typeConfig['tone']}
 - Language: $language
+
+CONTENT LENGTH GUIDELINES:
+- Summary (Özet): Brief overview, key points only, 300-450 words
+- Detailed (Detaylı): Comprehensive explanation with examples, 750-1050 words
+- Comprehensive (Bütün Konu): Complete coverage with deep analysis, 1500-2250 words
+- Extended (Genişletilmiş): In-depth coverage with multiple perspectives, 2250-3000 words
+
+LENGTH REQUIREMENTS:
+- Script MUST be between $minWords and $maxWords words
+- Each section should be proportional to the total length
+- Include enough content to fill the specified word count
+- Use natural speech patterns that sound conversational
 
 CRITICAL GUIDELINES FOR NATURAL SPEECH:
 1. Write in SHORT, SIMPLE sentences - maximum 15-20 words per sentence
 2. Use natural Turkish speech patterns and everyday language
 3. Include natural pauses with commas and periods
 4. Avoid complex technical terms - explain in simple words
-5. Use conversational transitions: "Şimdi", "Sonra", "Ayrıca", "Özellikle"
-6. Include natural speech fillers: "Yani", "Aslında", "Tabii ki"
+5. Use conversational transitions: "Şimdi", "Sonra", "Ayrıca", "Özellikle", "Bunun yanında"
+6. Include natural speech fillers: "Yani", "Aslında", "Tabii ki", "Gerçekten"
 7. Break long thoughts into multiple short sentences
-8. Use active voice and direct address: "Siz de", "Hepimiz"
+8. Use active voice and direct address: "Siz de", "Hepimiz", "Birlikte"
 9. Include natural breathing pauses every 2-3 sentences
 10. Make it sound like a real person talking, not reading
 
@@ -179,18 +224,27 @@ SPEECH OPTIMIZATION:
 - Each sentence should be easy to pronounce
 - Use common Turkish words, not formal language
 - Include natural rhythm and flow
-- Add emotional expressions: "Harika", "İlginç", "Önemli"
+- Add emotional expressions: "Harika", "İlginç", "Önemli", "Şaşırtıcı"
 - Use repetition for emphasis: "Çok önemli", "Gerçekten önemli"
+- Include examples and stories to make content engaging
+- Add personal touches: "Benim deneyimim", "Sizin de yaşadığınız"
+
+STRUCTURE REQUIREMENTS:
+- Start with a compelling introduction (1-2 minutes worth of content)
+- Develop main points with examples and explanations
+- Include transitions between sections
+- End with a strong conclusion and call to action
+- Each section should flow naturally into the next
 
 IMPORTANT: Return ONLY valid JSON format, no extra text:
 
 {
   "title": "Podcast Title",
   "description": "Brief description of the podcast",
-  "script": "Natural, conversational script optimized for speech with short sentences and natural flow"
+  "script": "Natural, conversational script optimized for speech with short sentences and natural flow. Must be $minWords-$maxWords words long."
 }
 
-Make sure the script is engaging, educational, and sounds completely natural when spoken.
+Make sure the script is engaging, educational, sounds completely natural when spoken, and meets the word count requirements.
 ''';
 
       // Generate content using Gemini
@@ -265,10 +319,38 @@ Make sure the script is engaging, educational, and sounds completely natural whe
         
         // Try to parse as JSON
         podcastData = json.decode(cleanedResponse) as Map<String, dynamic>;
+        
+        // Validate script length
+        final script = podcastData['script']?.toString() ?? '';
+        final wordCount = script.split(' ').length;
+        
         print('Content generated successfully');
         print('Title: ${podcastData['title']}');
         print('Description: ${podcastData['description']}');
-        print('Script length: ${podcastData['script']?.toString().length ?? 0} characters');
+        print('Script length: ${script.length} characters');
+        print('Word count: $wordCount words');
+        
+        // Check if script meets length requirements
+        if (wordCount < minWords) {
+          print('Script too short ($wordCount words), regenerating with longer content...');
+          // Regenerate with emphasis on length
+          final extendedPrompt = '$prompt\n\nIMPORTANT: The previous response was too short. Please create a longer script with at least $minWords words.';
+          final extendedResponse = await _geminiService.generateResponse(extendedPrompt, []);
+          
+          try {
+            final extendedData = json.decode(extendedResponse.trim()) as Map<String, dynamic>;
+            final extendedScript = extendedData['script']?.toString() ?? '';
+            final extendedWordCount = extendedScript.split(' ').length;
+            
+            if (extendedWordCount >= minWords) {
+              podcastData = extendedData;
+              print('Extended script generated: $extendedWordCount words');
+            }
+          } catch (e) {
+            print('Extended script generation failed: $e');
+          }
+        }
+        
       } catch (jsonError) {
         print('JSON parsing error: $jsonError');
         print('Original response: $response');
@@ -279,15 +361,13 @@ Make sure the script is engaging, educational, and sounds completely natural whe
 
       // Validate extracted data
       if (podcastData['script'] == null || podcastData['script'].toString().isEmpty) {
-        // Generate fallback content
-        podcastData = _generateFallbackContent(topic, title, typeConfig);
+        throw Exception('Failed to generate podcast script - no valid content found');
       }
 
       return podcastData;
     } catch (e) {
       print('Content generation error: $e');
-      // Return fallback content
-      return _generateFallbackContent(topic, title, typeConfig);
+      rethrow;
     }
   }
 
@@ -328,37 +408,8 @@ Make sure the script is engaging, educational, and sounds completely natural whe
       };
     } catch (e) {
       print('Content extraction error: $e');
-      return _generateFallbackContent(topic, title, _podcastTypes['educational']!);
+      throw Exception('Failed to extract content from AI response');
     }
-  }
-
-  // Generate fallback content when all else fails
-  Map<String, dynamic> _generateFallbackContent(String topic, String title, Map<String, dynamic> typeConfig) {
-    final fallbackScript = '''
-Merhaba! Bugün $topic hakkında konuşacağız.
-
-Bu konu gerçekten çok önemli. Hepimiz bu konuyu anlamalıyız.
-
-Şimdi size bu konuyu açıklayacağım. Çok basit ve anlaşılır olacak.
-
-Önce temel bilgileri verelim. Sonra detaylara geçeriz.
-
-Bu konu hayatımızda çok yer tutuyor. Yani gerçekten önemli.
-
-Ayrıca bu bilgiyi günlük hayatta kullanabiliriz. Çok pratik.
-
-Son olarak, bu konuyu unutmayın. Gerçekten değerli.
-
-Bu podcast'in sonuna geldik. Umarım faydalı olmuştur.
-
-Tekrar görüşmek üzere!
-''';
-
-    return {
-      'title': title.isNotEmpty ? title : 'Podcast about $topic',
-      'description': 'Generated podcast about $topic',
-      'script': fallbackScript,
-    };
   }
 
   // Create podcast from document
@@ -420,19 +471,8 @@ Dil: $language
       final response = await _geminiService.generateResponse(prompt, []);
       final podcastData = _parsePodcastFromResponse(response);
       
-      // Calculate total duration from segments
-      int totalDuration = 0;
-      if (podcastData.containsKey('segments')) {
-        final segments = podcastData['segments'] as List;
-        for (var segment in segments) {
-          totalDuration += segment['duration'] as int;
-        }
-      } else {
-        totalDuration = podcastData['estimatedDuration'] ?? 300;
-      }
-      
       // Generate audio from script
-      final audioUrl = await _uploadAudioToStorage(
+      final audioResult = await _uploadAudioToStorage(
         podcastData['script'],
         voiceStyle,
         language,
@@ -446,8 +486,8 @@ Dil: $language
         description: podcastData['description'],
         sourceType: 'document',
         sourceId: document.id,
-        audioUrl: audioUrl,
-        duration: Duration(seconds: totalDuration),
+        audioUrl: audioResult['url'] as String,
+        duration: audioResult['duration'] as Duration,
         createdAt: DateTime.now(),
         voiceStyle: voiceStyle,
         language: language,
@@ -499,59 +539,38 @@ Dil: $language
       print('JSON parsing error: $e');
       print('Original response: $response');
       
-      // Fallback: create basic podcast data
-      return {
-        'title': 'Podcast',
-        'description': 'AI tarafından oluşturulan podcast',
-        'script': 'Bu bir örnek podcast metnidir. İçerik yüklenirken bir hata oluştu.',
-        'estimatedDuration': 300,
-        'segments': [
-          {
-            'name': 'Giriş',
-            'duration': 30,
-            'text': 'Merhaba, bu podcast bölümüne hoş geldiniz.'
-          },
-          {
-            'name': 'Ana İçerik',
-            'duration': 240,
-            'text': 'Bu bölümde konu hakkında detaylı bilgi verilecektir.'
-          },
-          {
-            'name': 'Kapanış',
-            'duration': 30,
-            'text': 'Dinlediğiniz için teşekkürler.'
-          }
-        ]
-      };
+      throw Exception('Failed to parse podcast data from AI response');
     }
   }
 
-  // Enhanced TTS configuration
-  static const Map<String, Map<String, dynamic>> _voiceConfigs = {
-    'professional': {
-      'provider': 'google',
-      'voice': 'tr-TR-Standard-A',
-      'speed': 1.0,
-    },
-    'friendly': {
-      'provider': 'google',
-      'voice': 'tr-TR-Standard-B',
-      'speed': 1.1,
-    },
-    'casual': {
-      'provider': 'google',
-      'voice': 'tr-TR-Standard-C',
-      'speed': 1.2,
-    },
-    'energetic': {
-      'provider': 'google',
-      'voice': 'tr-TR-Standard-D',
-      'speed': 1.3,
-    },
-  };
+  // Get audio duration from file
+  Future<Duration> _getAudioDuration(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (await file.exists()) {
+        // Use just_audio package to get duration
+        final player = AudioPlayer();
+        await player.setFilePath(filePath);
+        final duration = player.duration;
+        await player.dispose();
+        
+        if (duration != null) {
+          print('Audio duration: ${duration.inSeconds} seconds');
+          return duration;
+        } else {
+          throw Exception('Could not determine audio duration');
+        }
+      } else {
+        throw Exception('Audio file not found for duration check: $filePath');
+      }
+    } catch (e) {
+      print('Error getting audio duration: $e');
+      rethrow;
+    }
+  }
 
   // Upload audio to local storage instead of Firebase Storage
-  Future<String> _uploadAudioToStorage(
+  Future<Map<String, dynamic>> _uploadAudioToStorage(
     String script,
     String voiceStyle,
     String language,
@@ -563,8 +582,7 @@ Dil: $language
       // Check if TTS is available
       final isAvailable = await _ttsService.isAvailable();
       if (!isAvailable) {
-        print('TTS not available, using placeholder audio');
-        return await _generatePlaceholderAudio();
+        throw Exception('TTS service is not available');
       }
       
       // Generate audio with enhanced settings
@@ -603,123 +621,19 @@ Dil: $language
           print('File size: ${await localFile.length()} bytes');
           print('File exists: ${await localFile.exists()}');
           
-          return localFilePath;
+          final duration = await _getAudioDuration(localFilePath);
+          return {'url': localFilePath, 'duration': duration};
         } else {
-          print('Audio file not found at path: $audioFilePath');
-          return await _generatePlaceholderAudio();
+          throw Exception('Audio file not found at path: $audioFilePath');
         }
       } catch (localError) {
         print('Local storage error: $localError');
-        
-        // Try to create a local backup
-        try {
-          final localBackupPath = await _createLocalBackup(audioFilePath);
-          return localBackupPath;
-        } catch (backupError) {
-          print('Local backup creation failed: $backupError');
-          return await _generatePlaceholderAudio();
-        }
+        rethrow;
       }
     } catch (e) {
       print('Audio generation error: $e');
-      // Return a placeholder URL if generation fails
-      return await _generatePlaceholderAudio();
-    }
-  }
-
-  // Create local backup of audio file
-  Future<String> _createLocalBackup(String originalPath) async {
-    try {
-      final originalFile = File(originalPath);
-      if (await originalFile.exists()) {
-        final directory = await getApplicationDocumentsDirectory();
-        final backupDir = Directory('${directory.path}/podcasts/backup');
-        
-        if (!await backupDir.exists()) {
-          await backupDir.create(recursive: true);
-        }
-        
-        final timestamp = DateTime.now().millisecondsSinceEpoch;
-        final backupPath = '${backupDir.path}/backup_$timestamp.mp3';
-        final backupFile = File(backupPath);
-        
-        await originalFile.copy(backupPath);
-        print('Local backup created: $backupPath');
-        return backupPath;
-      } else {
-        throw Exception('Original file not found');
-      }
-    } catch (e) {
-      print('Backup creation error: $e');
       rethrow;
     }
-  }
-
-  // Generate placeholder audio as fallback
-  Future<String> _generatePlaceholderAudio() async {
-    try {
-      // Create a unique filename
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final filename = 'podcast_placeholder_$timestamp.mp3';
-      
-      // Get app documents directory
-      final directory = await getApplicationDocumentsDirectory();
-      final podcastDir = Directory('${directory.path}/podcasts');
-      
-      // Create directory if it doesn't exist
-      if (!await podcastDir.exists()) {
-        await podcastDir.create(recursive: true);
-      }
-      
-      // Create local file path
-      final localFilePath = '${podcastDir.path}/$filename';
-      final localFile = File(localFilePath);
-      
-      // Create placeholder audio file
-      final placeholderAudioBytes = _createPlaceholderAudio();
-      await localFile.writeAsBytes(placeholderAudioBytes);
-      
-      print('Placeholder audio created locally: $localFilePath');
-      return localFilePath;
-    } catch (e) {
-      print('Placeholder audio creation error: $e');
-      return 'placeholder_audio.mp3';
-    }
-  }
-
-  // Create local audio file as fallback
-  Future<File> _createLocalAudioFile(String filename, Uint8List audioData) async {
-    final directory = await getApplicationDocumentsDirectory();
-    final file = File('${directory.path}/podcasts/$filename');
-    
-    // Create directory if it doesn't exist
-    await file.parent.create(recursive: true);
-    
-    // Write audio data to file
-    await file.writeAsBytes(audioData);
-    return file;
-  }
-
-  // Create placeholder audio file (WAV format)
-  Uint8List _createPlaceholderAudio() {
-    // Simple WAV file header for 1 second of silence
-    final List<int> wavHeader = [
-      0x52, 0x49, 0x46, 0x46, // RIFF
-      0x24, 0x00, 0x00, 0x00, // File size - 36 bytes
-      0x57, 0x41, 0x56, 0x45, // WAVE
-      0x66, 0x6D, 0x74, 0x20, // fmt chunk
-      0x10, 0x00, 0x00, 0x00, // fmt chunk size
-      0x01, 0x00, // Audio format (PCM)
-      0x01, 0x00, // Channels (mono)
-      0x44, 0xAC, 0x00, 0x00, // Sample rate (44100)
-      0x88, 0x58, 0x01, 0x00, // Byte rate
-      0x02, 0x00, // Block align
-      0x10, 0x00, // Bits per sample
-      0x64, 0x61, 0x74, 0x61, // data chunk
-      0x00, 0x00, 0x00, 0x00, // data chunk size
-    ];
-    
-    return Uint8List.fromList(wavHeader);
   }
 
   // Save podcast to Firestore with enhanced error handling
@@ -745,36 +659,10 @@ Dil: $language
       print('Podcast saved successfully to Firestore: ${podcast.title}');
     } catch (e) {
       print('Failed to save podcast to Firestore: $e');
-      
-      // If Firestore save fails, try to save locally
-      try {
-        await _savePodcastLocally(podcast);
-        print('Podcast saved locally as backup');
-      } catch (localError) {
-        print('Local save also failed: $localError');
-        throw Exception('Podcast kaydetme hatası: $e');
-      }
+      throw Exception('Podcast kaydetme hatası: $e');
     }
   }
   
-  // Save podcast locally as backup
-  Future<void> _savePodcastLocally(Podcast podcast) async {
-    try {
-      final directory = await getApplicationDocumentsDirectory();
-      final podcastsDir = Directory('${directory.path}/podcasts');
-      
-      if (!await podcastsDir.exists()) {
-        await podcastsDir.create(recursive: true);
-      }
-      
-      final podcastFile = File('${podcastsDir.path}/${podcast.id}.json');
-      await podcastFile.writeAsString(json.encode(podcast.toMap()));
-    } catch (e) {
-      print('Local save error: $e');
-      rethrow;
-    }
-  }
-
   // Get user's podcasts
   Stream<List<Podcast>> getUserPodcasts(String userId) {
     return _firestore
@@ -884,10 +772,10 @@ Dil: $language
       final totalPodcasts = podcastList.length;
       final totalDuration = podcastList
           .map((p) => p.duration.inMinutes)
-          .fold<int>(0, (sum, duration) => sum + duration);
+          .fold<int>(0, (total, duration) => total + duration);
       final totalListens = podcastList
           .map((p) => p.listenCount ?? 0)
-          .fold<int>(0, (sum, count) => sum + count);
+          .fold<int>(0, (total, listenCount) => total + listenCount);
       final averageDuration = totalDuration / totalPodcasts;
       
       // Find favorite types
