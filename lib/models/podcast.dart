@@ -12,6 +12,8 @@ class Podcast {
   final int? listenCount;
   final String? voiceStyle; // 'energetic', 'calm', 'professional', 'friendly'
   final String? language; // 'tr-TR', 'en-US', etc.
+  final String? podcastType; // 'educational', 'story', 'news', 'interview'
+  final String? script; // Podcast script for reference
 
   Podcast({
     required this.id,
@@ -27,6 +29,8 @@ class Podcast {
     this.listenCount,
     this.voiceStyle,
     this.language,
+    this.podcastType,
+    this.script,
   });
 
   Map<String, dynamic> toMap() {
@@ -44,6 +48,8 @@ class Podcast {
       'listenCount': listenCount,
       'voiceStyle': voiceStyle,
       'language': language,
+      'podcastType': podcastType,
+      'script': script,
     };
   }
 
@@ -64,6 +70,8 @@ class Podcast {
       listenCount: map['listenCount'],
       voiceStyle: map['voiceStyle'],
       language: map['language'],
+      podcastType: map['podcastType'],
+      script: map['script'],
     );
   }
 
@@ -81,6 +89,8 @@ class Podcast {
     int? listenCount,
     String? voiceStyle,
     String? language,
+    String? podcastType,
+    String? script,
   }) {
     return Podcast(
       id: id ?? this.id,
@@ -96,6 +106,8 @@ class Podcast {
       listenCount: listenCount ?? this.listenCount,
       voiceStyle: voiceStyle ?? this.voiceStyle,
       language: language ?? this.language,
+      podcastType: podcastType ?? this.podcastType,
+      script: script ?? this.script,
     );
   }
 } 

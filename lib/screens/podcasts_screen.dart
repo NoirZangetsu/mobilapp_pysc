@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:file_picker/file_picker.dart';
-import 'dart:io';
-import '../providers/auth_provider.dart';
+import 'package:provider/provider.dart';
 import '../providers/learning_provider.dart';
+import '../providers/auth_provider.dart';
 import '../models/podcast.dart';
-import '../models/document.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
 import 'podcast_player_screen.dart';
@@ -23,6 +21,36 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   bool _isProcessingPDF = false;
   bool _isProcessingImage = false;
   bool _isTyping = false;
+  bool _isCreatingPodcast = false; // Yeni loading state
+  
+  // Enhanced podcast creation options
+  String _selectedVoiceStyle = 'professional';
+  String _selectedContentLength = 'detailed'; // 'summary', 'detailed', 'comprehensive'
+  String _selectedLanguage = 'tr-TR';
+
+  // Content length options with descriptions
+  static const Map<String, Map<String, String>> _contentLengthOptions = {
+    'summary': {
+      'name': 'Özet',
+      'description': 'Kısa ve öz içerik (2-3 dakika)',
+      'icon': '📝',
+    },
+    'detailed': {
+      'name': 'Detaylı',
+      'description': 'Kapsamlı açıklama (5-7 dakika)',
+      'icon': '📚',
+    },
+    'comprehensive': {
+      'name': 'Bütün Konu',
+      'description': 'Tam kapsamlı içerik (10-15 dakika)',
+      'icon': '🎓',
+    },
+    'extended': {
+      'name': 'Genişletilmiş',
+      'description': 'Derinlemesine analiz (15-20 dakika)',
+      'icon': '🔬',
+    },
+  };
 
   @override
   void dispose() {
@@ -37,19 +65,20 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
       backgroundColor: AppColors.primaryBackground,
       appBar: _buildAppBar(),
       body: SafeArea(
-        child: Consumer<LearningProvider>(
-          builder: (context, learningProvider, child) {
-            return Column(
-              children: [
-                _buildAIAssistantSection(context, learningProvider),
-                Expanded(
-                  child: learningProvider.podcasts.isEmpty
-                      ? _buildEmptyState()
-                      : _buildPodcastsList(learningProvider),
-                ),
-              ],
-            );
-          },
+        child: SingleChildScrollView(
+          child: Consumer<LearningProvider>(
+            builder: (context, learningProvider, child) {
+              return Column(
+                children: [
+                  _buildAIAssistantSection(context, learningProvider),
+                  if (learningProvider.podcasts.isNotEmpty)
+                    _buildPodcastsList(learningProvider)
+                  else
+                    _buildEmptyState(),
+                ],
+              );
+            },
+          ),
         ),
       ),
     );
@@ -65,46 +94,6 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
       ),
       centerTitle: true,
       iconTheme: const IconThemeData(color: AppColors.headingText),
-      actions: [
-        _buildUploadButton(
-          icon: Icons.image,
-          isLoading: _isProcessingImage,
-          onPressed: _pickAndProcessImage,
-          tooltip: 'Görüntü Yükle',
-        ),
-        _buildUploadButton(
-          icon: Icons.upload_file,
-          isLoading: _isProcessingPDF,
-          onPressed: _pickAndProcessPDF,
-          tooltip: 'PDF Yükle',
-        ),
-        IconButton(
-          icon: const Icon(Icons.add, color: AppColors.secondaryText),
-          onPressed: () => _showCreatePodcastDialog(context),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildUploadButton({
-    required IconData icon,
-    required bool isLoading,
-    required VoidCallback onPressed,
-    required String tooltip,
-  }) {
-    return IconButton(
-      icon: isLoading
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
-              ),
-            )
-          : Icon(icon, color: AppColors.accentBlue),
-      onPressed: isLoading ? null : onPressed,
-      tooltip: tooltip,
     );
   }
 
@@ -128,7 +117,6 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
           );
           
           if (document != null) {
-            // Auto-fill text input with a podcast request
             _textController.text = 'Bu PDF\'den podcast oluştur';
             _textFocusNode.requestFocus();
           }
@@ -165,7 +153,6 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
           );
           
           if (document != null) {
-            // Auto-fill text input with a podcast request
             _textController.text = 'Bu görüntüden podcast oluştur';
             _textFocusNode.requestFocus();
           }
@@ -186,20 +173,61 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
     final text = _textController.text.trim();
     if (text.isEmpty) return;
 
-    _textController.clear();
-    _textFocusNode.unfocus();
-    
-    final learningProvider = context.read<LearningProvider>();
-    final authProvider = context.read<AuthProvider>();
-    if (authProvider.currentUser != null) {
-      await learningProvider.processPodcastRequest(text, authProvider.currentUser!.uid);
+    // Set loading state
+    setState(() {
+      _isCreatingPodcast = true;
+    });
+
+    try {
+      _textController.clear();
+      _textFocusNode.unfocus();
+      
+      final learningProvider = context.read<LearningProvider>();
+      final authProvider = context.read<AuthProvider>();
+      if (authProvider.currentUser != null) {
+        // Enhanced podcast creation with selected options
+        await learningProvider.processPodcastRequest(
+          text, 
+          authProvider.currentUser!.uid,
+          voiceStyle: _selectedVoiceStyle,
+          contentLength: _selectedContentLength, // Changed to content length
+          language: _selectedLanguage,
+        );
+        
+        // Show success message
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Podcast başarıyla oluşturuldu!'),
+              backgroundColor: AppColors.success,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      // Show error message
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Podcast oluşturma hatası: $e'),
+            backgroundColor: AppColors.errorRed,
+          ),
+        );
+      }
+    } finally {
+      // Clear loading state
+      if (mounted) {
+        setState(() {
+          _isCreatingPodcast = false;
+        });
+      }
     }
   }
 
   Widget _buildAIAssistantSection(BuildContext context, LearningProvider learningProvider) {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.all(12), // Reduced margin
+      padding: const EdgeInsets.all(12), // Reduced padding
       decoration: BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topLeft,
@@ -225,33 +253,35 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header - more compact
+          // Enhanced header
           Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(6),
+                padding: const EdgeInsets.all(4), // Reduced padding
                 decoration: BoxDecoration(
                   color: AppColors.accentBlue.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(6), // Reduced radius
                 ),
-                child: Icon(Icons.psychology, color: AppColors.accentBlue, size: 16),
+                child: Icon(Icons.psychology, color: AppColors.accentBlue, size: 14), // Reduced size
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6), // Reduced spacing
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'AI Asistan',
+                      'AI Podcast Asistanı',
                       style: AppTextStyles.bodyMedium.copyWith(
                         color: AppColors.accentBlue,
                         fontWeight: FontWeight.w600,
+                        fontSize: 13, // Reduced font size
                       ),
                     ),
                     Text(
-                      'Podcast oluşturmak için AI\'ya sorular sorun',
+                      'Sesli içerik oluşturmak için AI\'ya sorular sorun',
                       style: AppTextStyles.bodySmall.copyWith(
                         color: AppColors.secondaryText,
+                        fontSize: 10, // Reduced font size
                       ),
                     ),
                   ],
@@ -259,15 +289,21 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 8), // Reduced spacing
           
-          // Text input area - more compact
+          // Podcast creation options
+          _buildPodcastOptions(),
+          const SizedBox(height: 8), // Reduced spacing
+          
+          // Text input area
           Container(
             decoration: BoxDecoration(
               color: AppColors.inputBackground,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
-                color: AppColors.inputBorder,
+                color: _isCreatingPodcast 
+                    ? AppColors.accentBlue 
+                    : AppColors.inputBorder,
                 width: 1,
               ),
             ),
@@ -278,10 +314,15 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                     controller: _textController,
                     focusNode: _textFocusNode,
                     style: AppTextStyles.bodyMedium,
+                    enabled: !_isCreatingPodcast, // Disable during creation
                     decoration: InputDecoration(
-                      hintText: 'AI asistanına sorun...',
+                      hintText: _isCreatingPodcast 
+                          ? 'Podcast oluşturuluyor...' 
+                          : 'AI asistanına sorun...',
                       hintStyle: AppTextStyles.bodyMedium.copyWith(
-                        color: AppColors.inputLabel,
+                        color: _isCreatingPodcast 
+                            ? AppColors.accentBlue 
+                            : AppColors.inputLabel,
                       ),
                       border: InputBorder.none,
                       contentPadding: const EdgeInsets.symmetric(
@@ -299,89 +340,203 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                     },
                   ),
                 ),
-                // Send button
-                if (_isTyping)
-                  Container(
-                    margin: const EdgeInsets.only(right: 4),
-                    child: IconButton(
-                      icon: const Icon(Icons.send, color: AppColors.accentBlue, size: 20),
-                      onPressed: _sendTextMessage,
-                      tooltip: 'Gönder',
-                    ),
-                  ),
+                // Loading indicator or send button
+                Container(
+                  margin: const EdgeInsets.only(right: 4),
+                  child: _isCreatingPodcast
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
+                          ),
+                        )
+                      : _isTyping
+                          ? IconButton(
+                              icon: const Icon(Icons.send, color: AppColors.accentBlue, size: 18),
+                              onPressed: _sendTextMessage,
+                              tooltip: 'Gönder',
+                            )
+                          : const SizedBox.shrink(),
+                ),
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // Reduced spacing
           
-          // Quick action buttons - more compact
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildQuickActionButton(
-                  icon: Icons.image,
-                  label: 'Görüntü',
-                  onTap: _pickAndProcessImage,
-                  isLoading: _isProcessingImage,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.upload_file,
-                  label: 'PDF',
-                  onTap: _pickAndProcessPDF,
-                  isLoading: _isProcessingPDF,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.auto_awesome,
-                  label: 'Otomatik',
-                  onTap: () {
-                    _textController.text = 'Bu konu için podcast oluştur';
-                    _sendTextMessage();
-                  },
-                  isLoading: false,
-                ),
-                const SizedBox(width: 6),
-                _buildQuickActionButton(
-                  icon: Icons.headphones,
-                  label: 'Sesli',
-                  onTap: () {
-                    _textController.text = 'Sesli öğrenme içeriği oluştur';
-                    _sendTextMessage();
-                  },
-                  isLoading: false,
-                ),
-              ],
-            ),
+          // Enhanced quick actions
+          Wrap(
+            spacing: 6, // Reduced spacing
+            runSpacing: 6, // Reduced spacing
+            children: [
+              _buildQuickActionButton(
+                icon: Icons.image,
+                label: 'Görüntü',
+                onTap: _pickAndProcessImage,
+                isLoading: _isProcessingImage,
+              ),
+              _buildQuickActionButton(
+                icon: Icons.upload_file,
+                label: 'PDF',
+                onTap: _pickAndProcessPDF,
+                isLoading: _isProcessingPDF,
+              ),
+              _buildQuickActionButton(
+                icon: Icons.auto_awesome,
+                label: 'Otomatik',
+                onTap: () {
+                  final contentName = _contentLengthOptions[_selectedContentLength]!['name']!;
+                  _textController.text = 'Bu konu için $contentName podcast oluştur';
+                  _sendTextMessage();
+                },
+                isLoading: false,
+              ),
+              _buildQuickActionButton(
+                icon: Icons.mic,
+                label: 'Eğitim',
+                onTap: () {
+                  final contentName = _contentLengthOptions[_selectedContentLength]!['name']!;
+                  _textController.text = 'Eğitim amaçlı $contentName podcast oluştur';
+                  _sendTextMessage();
+                },
+                isLoading: false,
+              ),
+              _buildQuickActionButton(
+                icon: Icons.record_voice_over,
+                label: 'Sesli',
+                onTap: () {
+                  final contentName = _contentLengthOptions[_selectedContentLength]!['name']!;
+                  _textController.text = '$_selectedVoiceStyle ses tonuyla $contentName podcast yap';
+                  _sendTextMessage();
+                },
+                isLoading: false,
+              ),
+            ],
           ),
+          const SizedBox(height: 6), // Reduced spacing
+          _buildExamplePrompts(),
         ],
       ),
     );
   }
 
-  Widget _buildExampleQuestion(String question) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4),
-      child: Row(
-        children: [
-          Icon(
-            Icons.lightbulb_outline,
-            size: 12,
-            color: AppColors.accentBlue.withValues(alpha: 0.7),
+  Widget _buildPodcastOptions() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Podcast Ayarları',
+          style: AppTextStyles.bodySmall.copyWith(
+            color: AppColors.headingText, // Changed to white
+            fontWeight: FontWeight.w600,
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              question,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: AppColors.secondaryText,
-                fontStyle: FontStyle.italic,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedVoiceStyle,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.inputBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                ),
+                dropdownColor: AppColors.surfaceBackground, // Added dropdown color
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.headingText, // White text color
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'professional', child: Text('Profesyonel', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'friendly', child: Text('Arkadaşça', style: TextStyle(color: Colors.white))),
+                  DropdownMenuItem(value: 'casual', child: Text('Seyirciye Uygun', style: TextStyle(color: Colors.white))),
+                ],
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedVoiceStyle = value;
+                    });
+                  }
+                },
               ),
             ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: _selectedContentLength,
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: AppColors.inputBackground,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  isDense: true,
+                ),
+                dropdownColor: AppColors.surfaceBackground, // Added dropdown color
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: AppColors.headingText, // White text color
+                ),
+                items: _contentLengthOptions.entries.map((entry) {
+                  final option = entry.value;
+                  return DropdownMenuItem(
+                    value: entry.key,
+                    child: Text(
+                      '${option['icon']!} ${option['name']!}',
+                      style: const TextStyle(color: Colors.white),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    setState(() {
+                      _selectedContentLength = value;
+                    });
+                  }
+                },
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        // Content length description
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: AppColors.accentBlue.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: AppColors.accentBlue.withValues(alpha: 0.2),
+            ),
           ),
-        ],
-      ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.info_outline,
+                color: AppColors.accentBlue,
+                size: 16,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _contentLengthOptions[_selectedContentLength]!['description']!,
+                  style: AppTextStyles.bodySmall.copyWith(
+                    color: AppColors.secondaryText,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 
@@ -395,12 +550,12 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
       onTap: isLoading ? null : onTap,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4), // Reduced padding
         decoration: BoxDecoration(
           color: isLoading 
               ? AppColors.accentBlue.withValues(alpha: 0.3)
               : AppColors.accentBlue.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(12), // Reduced border radius
           border: Border.all(
             color: AppColors.accentBlue.withValues(alpha: 0.3),
           ),
@@ -417,22 +572,22 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
           children: [
             if (isLoading)
               const SizedBox(
-                width: 12,
-                height: 12,
+                width: 10, // Reduced size
+                height: 10, // Reduced size
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
                   valueColor: AlwaysStoppedAnimation<Color>(AppColors.accentBlue),
                 ),
               )
             else
-              Icon(icon, size: 14, color: AppColors.accentBlue),
-            const SizedBox(width: 4),
+              Icon(icon, size: 12, color: AppColors.accentBlue), // Reduced icon size
+            const SizedBox(width: 3), // Reduced spacing
             Text(
               label,
               style: AppTextStyles.bodySmall.copyWith(
                 color: AppColors.accentBlue,
                 fontWeight: FontWeight.w600,
-                fontSize: 12,
+                fontSize: 10, // Reduced font size
               ),
             ),
           ],
@@ -441,75 +596,68 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
     );
   }
 
-  Widget _buildCreateSection(BuildContext context, LearningProvider provider) {
+  Widget _buildExamplePrompts() {
     return Container(
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: AppColors.surfaceBackground,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderLight),
+        color: AppColors.accentBlue.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: AppColors.accentBlue.withValues(alpha: 0.1),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Yeni Podcast Oluştur',
-            style: AppTextStyles.headingSmall,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Konu veya dokümanlardan sesli öğrenme içeriği oluşturun',
-            style: AppTextStyles.bodyMedium.copyWith(
-              color: AppColors.secondaryText,
-            ),
-          ),
-          const SizedBox(height: 16),
           Row(
             children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: provider.isCreatingPodcast
-                      ? null
-                      : () => _showCreateFromTopicDialog(context, provider),
-                  icon: provider.isCreatingPodcast
-                      ? const SizedBox(
-                          width: 16,
-                          height: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.topic),
-                  label: const Text('Konudan Oluştur'),
-                ),
+              Icon(
+                Icons.lightbulb_outline,
+                size: 12, // Reduced size
+                color: AppColors.accentBlue,
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: provider.isCreatingPodcast || provider.documents.isEmpty
-                      ? null
-                      : () => _showCreateFromDocumentDialog(context, provider),
-                  icon: const Icon(Icons.description),
-                  label: const Text('Dokümandan Oluştur'),
+              const SizedBox(width: 4), // Reduced spacing
+              Text(
+                'Örnek Sorular:',
+                style: AppTextStyles.bodySmall.copyWith(
+                  color: AppColors.accentBlue,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11, // Reduced font size
                 ),
               ),
             ],
           ),
-          if (provider.podcastError != null) ...[
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: AppColors.error.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Text(
-                provider.podcastError!,
-                style: AppTextStyles.bodySmall.copyWith(
-                  color: AppColors.error,
-                ),
+          const SizedBox(height: 4), // Reduced spacing
+          _buildExampleQuestion('"Matematik konuları için ${_contentLengthOptions[_selectedContentLength]!['name']} podcast oluştur"'),
+          _buildExampleQuestion('"Tarih dersleri için $_selectedVoiceStyle ses tonuyla eğitim podcast\'i yap"'),
+          _buildExampleQuestion('"Bu PDF\'den ${_contentLengthOptions[_selectedContentLength]!['name']} podcast oluştur"'),
+          _buildExampleQuestion('"Bilim konuları için $_selectedVoiceStyle ses tonuyla ${_contentLengthOptions[_selectedContentLength]!['name']} podcast yap"'),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildExampleQuestion(String question) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 2), // Reduced padding
+      child: Row(
+        children: [
+          Icon(
+            Icons.lightbulb_outline,
+            size: 10, // Reduced size
+            color: AppColors.accentBlue.withValues(alpha: 0.7),
+          ),
+          const SizedBox(width: 4), // Reduced spacing
+          Expanded(
+            child: Text(
+              question,
+              style: AppTextStyles.bodySmall.copyWith(
+                color: AppColors.secondaryText,
+                fontStyle: FontStyle.italic,
+                fontSize: 10, // Reduced font size
               ),
             ),
-          ],
+          ),
         ],
       ),
     );
@@ -612,11 +760,55 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
 
   Widget _buildPodcastsList(LearningProvider provider) {
     return ListView.builder(
+      shrinkWrap: true, // Added shrinkWrap: true to allow ListView to be inside SingleChildScrollView
+      physics: const NeverScrollableScrollPhysics(), // Disable ListView's own scrolling
       padding: const EdgeInsets.all(16),
       itemCount: provider.podcasts.length,
       itemBuilder: (context, index) {
         final podcast = provider.podcasts[index];
-        return _buildPodcastCard(podcast, provider, context);
+        return Dismissible(
+          key: Key(podcast.id),
+          direction: DismissDirection.endToStart,
+          background: Container(
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.error,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(
+                  Icons.delete,
+                  color: Colors.white,
+                  size: 24,
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Sil',
+                  style: AppTextStyles.bodyMedium.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          confirmDismiss: (direction) async {
+            return await _showDeleteConfirmation(context, podcast, provider);
+          },
+          onDismissed: (direction) async {
+            final authProvider = context.read<AuthProvider>();
+            if (authProvider.currentUser != null) {
+              await provider.deletePodcast(
+                authProvider.currentUser!.uid,
+                podcast.id,
+              );
+            }
+          },
+          child: _buildPodcastCard(podcast, provider, context),
+        );
       },
     );
   }
@@ -624,7 +816,6 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
   Widget _buildPodcastCard(Podcast podcast, LearningProvider provider, BuildContext context) {
     return GestureDetector(
       onTap: () {
-        // Direct access to player screen
         Navigator.push(
           context,
           MaterialPageRoute(
@@ -674,6 +865,8 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                         style: AppTextStyles.bodyMedium.copyWith(
                           fontWeight: FontWeight.w600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                       if (podcast.description != null)
                         Text(
@@ -695,11 +888,12 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            // Simplified metadata row
             Row(
               children: [
                 Icon(
                   Icons.schedule,
-                  size: 16,
+                  size: 14,
                   color: AppColors.secondaryText,
                 ),
                 const SizedBox(width: 4),
@@ -712,7 +906,7 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                 const SizedBox(width: 16),
                 Icon(
                   Icons.timer,
-                  size: 16,
+                  size: 14,
                   color: AppColors.secondaryText,
                 ),
                 const SizedBox(width: 4),
@@ -722,21 +916,6 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
                     color: AppColors.secondaryText,
                   ),
                 ),
-                if (podcast.listenCount != null) ...[
-                  const SizedBox(width: 16),
-                  Icon(
-                    Icons.play_circle_outline,
-                    size: 16,
-                    color: AppColors.secondaryText,
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    '${podcast.listenCount} dinleme',
-                    style: AppTextStyles.bodySmall.copyWith(
-                      color: AppColors.secondaryText,
-                    ),
-                  ),
-                ],
                 const Spacer(),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -770,243 +949,19 @@ class _PodcastsScreenState extends State<PodcastsScreen> {
     return '${minutes}:${seconds.toString().padLeft(2, '0')}';
   }
 
-  void _showCreatePodcastDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Podcast Oluştur'),
-        content: const Text('Konu veya doküman seçerek podcast oluşturun.'),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showCreateFromTopicDialog(context, context.read<LearningProvider>());
-            },
-            child: const Text('Konudan Oluştur'),
-          ),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _showCreateFromDocumentDialog(context, context.read<LearningProvider>());
-            },
-            child: const Text('Dokümandan Oluştur'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showCreateFromTopicDialog(BuildContext context, LearningProvider provider) {
-    final topicController = TextEditingController();
-    final titleController = TextEditingController();
-    String selectedVoiceStyle = 'professional';
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Konudan Podcast Oluştur'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: topicController,
-                decoration: const InputDecoration(
-                  labelText: 'Konu',
-                  hintText: 'Örn: Matematik, Tarih, Bilim...',
-                ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Başlık',
-                  hintText: 'Örn: Matematik Podcast\'i',
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedVoiceStyle,
-                decoration: const InputDecoration(
-                  labelText: 'Ses Tonu',
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'professional', child: Text('Profesyonel')),
-                  DropdownMenuItem(value: 'energetic', child: Text('Enerjik')),
-                  DropdownMenuItem(value: 'calm', child: Text('Sakin')),
-                  DropdownMenuItem(value: 'friendly', child: Text('Dostane')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedVoiceStyle = value!;
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('İptal'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                if (topicController.text.isNotEmpty && titleController.text.isNotEmpty) {
-                  Navigator.pop(context);
-                  final authProvider = context.read<AuthProvider>();
-                  if (authProvider.currentUser != null) {
-                    await provider.createPodcastFromTopic(
-                      authProvider.currentUser!.uid,
-                      topicController.text,
-                      titleController.text,
-                      voiceStyle: selectedVoiceStyle,
-                    );
-                  }
-                }
-              },
-              child: const Text('Oluştur'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showCreateFromDocumentDialog(BuildContext context, LearningProvider provider, [Document? document]) {
-    final titleController = TextEditingController();
-    Document? selectedDocument = document;
-    String selectedVoiceStyle = 'professional';
-
-    showDialog(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Dokümandan Podcast Oluştur'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (document == null) ...[
-                DropdownButtonFormField<Document>(
-                  value: selectedDocument,
-                  decoration: const InputDecoration(
-                    labelText: 'Doküman Seç',
-                  ),
-                  items: provider.documents
-                      .where((doc) => doc.status == 'completed')
-                      .map((doc) => DropdownMenuItem(
-                            value: doc,
-                            child: Text(doc.fileName),
-                          ))
-                      .toList(),
-                  onChanged: (value) {
-                    setState(() {
-                      selectedDocument = value;
-                    });
-                  },
-                ),
-                const SizedBox(height: 16),
-              ] else ...[
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.description, color: AppColors.accentBlue, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          document.fileName,
-                          style: AppTextStyles.bodySmall.copyWith(
-                            color: AppColors.accentBlue,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 16),
-              ],
-              TextField(
-                controller: titleController,
-                decoration: const InputDecoration(
-                  labelText: 'Başlık',
-                  hintText: 'Örn: Doküman Podcast\'i',
-                ),
-              ),
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                value: selectedVoiceStyle,
-                decoration: const InputDecoration(
-                  labelText: 'Ses Tonu',
-                ),
-                items: const [
-                  DropdownMenuItem(value: 'professional', child: Text('Profesyonel')),
-                  DropdownMenuItem(value: 'energetic', child: Text('Enerjik')),
-                  DropdownMenuItem(value: 'calm', child: Text('Sakin')),
-                  DropdownMenuItem(value: 'friendly', child: Text('Dostane')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    selectedVoiceStyle = value!;
-                  });
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('İptal'),
-            ),
-            ElevatedButton(
-              onPressed: selectedDocument != null && titleController.text.isNotEmpty
-                  ? () async {
-                      Navigator.pop(context);
-                      final authProvider = context.read<AuthProvider>();
-                      if (authProvider.currentUser != null) {
-                        await provider.createPodcastFromDocument(
-                          authProvider.currentUser!.uid,
-                          selectedDocument!,
-                          titleController.text,
-                          voiceStyle: selectedVoiceStyle,
-                        );
-                      }
-                    }
-                  : null,
-              child: const Text('Oluştur'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  void _showDeleteConfirmation(BuildContext context, Podcast podcast, LearningProvider provider) {
-    showDialog(
+  Future<bool?> _showDeleteConfirmation(BuildContext context, Podcast podcast, LearningProvider provider) {
+    return showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Podcast\'i Sil'),
         content: Text('"${podcast.title}" başlıklı podcast\'i silmek istediğinizden emin misiniz?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(context, false),
             child: const Text('İptal'),
           ),
           ElevatedButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              final authProvider = context.read<AuthProvider>();
-              if (authProvider.currentUser != null) {
-                await provider.deletePodcast(
-                  authProvider.currentUser!.uid,
-                  podcast.id,
-                );
-              }
-            },
+            onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.error,
             ),

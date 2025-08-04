@@ -7,35 +7,67 @@ class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
   
   User? _currentUser;
-  UserModel? _userData;
+  // User data from Firestore
+  Map<String, dynamic>? _userData;
   bool _isLoading = false;
   String? _error;
 
   // Getters
   User? get currentUser => _currentUser;
-  UserModel? get userData => _userData;
+  Map<String, dynamic>? get userData => _userData;
   bool get isLoading => _isLoading;
   String? get error => _error;
-  bool get isAuthenticated => _currentUser != null;
+  bool get isAuthenticated => _currentUser != null && _currentUser!.uid.isNotEmpty && !_isLoading;
 
   // Initialize auth state
-  void initialize() {
-    _authService.authStateChanges.listen((User? user) {
-      _currentUser = user;
-      if (user != null) {
-        _loadUserData(user.uid);
-      } else {
-        _userData = null;
+  Future<void> initialize() async {
+    try {
+      _setLoading(true);
+      
+      // Check if user is already signed in
+      final currentUser = _authService.currentUser;
+      
+      if (currentUser != null && currentUser.uid.isNotEmpty) {
+        _currentUser = currentUser;
+        // Load user data in background, don't wait for it
+        _loadUserData();
+        _setLoading(false);
+        notifyListeners();
+        return;
       }
+      
+      // Listen to auth state changes
+      _authService.authStateChanges.listen((User? user) {
+        _currentUser = user;
+        if (user != null && user.uid.isNotEmpty) {
+          _loadUserData();
+        } else {
+          _userData = null;
+        }
+        _setLoading(false);
+        notifyListeners();
+      });
+      
+      // If no user is signed in, set loading to false immediately
+      if (currentUser == null || currentUser.uid.isEmpty) {
+        _setLoading(false);
+        notifyListeners();
+      }
+    } catch (e) {
+      print('Auth initialization error: $e');
+      _setLoading(false);
       notifyListeners();
-    });
+    }
   }
 
   // Load user data from Firestore
-  Future<void> _loadUserData(String uid) async {
+  Future<void> _loadUserData() async {
     try {
-      _userData = await _authService.getUserData(uid);
-      notifyListeners();
+      if (_currentUser != null) {
+        final userData = await _authService.getUserData(_currentUser!.uid);
+        _userData = userData;
+        notifyListeners();
+      }
     } catch (e) {
       print('Error loading user data: $e');
     }
@@ -43,8 +75,10 @@ class AuthProvider extends ChangeNotifier {
 
   // Set loading state
   void _setLoading(bool loading) {
-    _isLoading = loading;
-    notifyListeners();
+    if (_isLoading != loading) {
+      _isLoading = loading;
+      notifyListeners();
+    }
   }
 
   // Clear error
@@ -92,36 +126,36 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Google Sign In
+  // Sign in with Google (not implemented)
   Future<bool> signInWithGoogle() async {
+    _setLoading(true);
+    _clearError();
+    
     try {
-      _setLoading(true);
-      _clearError();
-      
-      await _authService.signInWithGoogle();
-      
-      _setLoading(false);
-      return true;
-    } catch (e) {
-      _setLoading(false);
-      _setError(e.toString());
+      // Google Sign-In is not implemented in this version
+      _setError('Google ile giriş henüz desteklenmiyor');
       return false;
+    } catch (e) {
+      _setError('Google ile giriş hatası: $e');
+      return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
-  // Password Reset
+  // Send password reset email
   Future<bool> sendPasswordResetEmail(String email) async {
+    _setLoading(true);
+    _clearError();
+    
     try {
-      _clearError();
-      _setLoading(true);
-      
-      await _authService.sendPasswordResetEmail(email);
-      
-      _setLoading(false);
+      await _authService.resetPassword(email);
       return true;
     } catch (e) {
-      _setError(e.toString());
+      _setError('Şifre sıfırlama hatası: $e');
       return false;
+    } finally {
+      _setLoading(false);
     }
   }
 
@@ -152,7 +186,7 @@ class AuthProvider extends ChangeNotifier {
       await _authService.updateUserData(_currentUser!.uid, data);
       
       // Reload user data
-      await _loadUserData(_currentUser!.uid);
+      await _loadUserData();
       
       _setLoading(false);
       return true;
@@ -165,7 +199,7 @@ class AuthProvider extends ChangeNotifier {
   // Refresh user data
   Future<void> refreshUserData() async {
     if (_currentUser != null) {
-      await _loadUserData(_currentUser!.uid);
+      await _loadUserData();
     }
   }
 } 

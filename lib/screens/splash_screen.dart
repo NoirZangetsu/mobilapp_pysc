@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
+import '../providers/auth_provider.dart';
+import '../screens/home_screen.dart';
+import '../screens/auth/login_screen.dart';
 
 class SplashScreen extends StatefulWidget {
-  final VoidCallback onSplashComplete;
-
-  const SplashScreen({
-    super.key,
-    required this.onSplashComplete,
-  });
+  const SplashScreen({super.key});
 
   @override
   State<SplashScreen> createState() => _SplashScreenState();
@@ -38,12 +37,12 @@ class _SplashScreenState extends State<SplashScreen>
 
     // Initialize animations
     _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
 
     _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
 
@@ -67,10 +66,37 @@ class _SplashScreenState extends State<SplashScreen>
     _fadeController.forward();
     _scaleController.forward();
 
-    // Navigate after animation completes
-    Future.delayed(const Duration(seconds: 3), () {
-      widget.onSplashComplete();
-    });
+    // Initialize auth and navigate after animation
+    _initializeAndNavigate();
+  }
+
+  Future<void> _initializeAndNavigate() async {
+    // Wait for animations to complete (reduced from 2 seconds)
+    await Future.delayed(const Duration(seconds: 1));
+    
+    if (!mounted) return;
+
+    // Initialize auth provider
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    await authProvider.initialize();
+
+    if (!mounted) return;
+
+    // Wait a bit more to ensure auth state is properly set
+    await Future.delayed(const Duration(milliseconds: 200));
+
+    if (!mounted) return;
+
+    // Navigate based on auth state
+    if (authProvider.isAuthenticated && authProvider.currentUser != null) {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+      );
+    } else {
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginScreen()),
+      );
+    }
   }
 
   @override
@@ -92,6 +118,7 @@ class _SplashScreenState extends State<SplashScreen>
             colors: [
               AppColors.primaryBackground,
               AppColors.surfaceBackground,
+              AppColors.secondaryBlue.withOpacity(0.3),
             ],
           ),
         ),
@@ -115,10 +142,16 @@ class _SplashScreenState extends State<SplashScreen>
                             borderRadius: BorderRadius.circular(24),
                             boxShadow: [
                               BoxShadow(
-                                color: AppColors.primaryButton.withOpacity(0.3),
-                                blurRadius: 20,
-                                spreadRadius: 5,
-                                offset: const Offset(0, 10),
+                                color: AppColors.iconPrimary.withOpacity(0.4),
+                                blurRadius: 25,
+                                spreadRadius: 8,
+                                offset: const Offset(0, 12),
+                              ),
+                              BoxShadow(
+                                color: AppColors.iconAccent.withOpacity(0.2),
+                                blurRadius: 15,
+                                spreadRadius: 3,
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
@@ -148,6 +181,13 @@ class _SplashScreenState extends State<SplashScreen>
                         style: AppTextStyles.headingLarge.copyWith(
                           color: AppColors.headingText,
                           fontWeight: FontWeight.bold,
+                          shadows: [
+                            Shadow(
+                              color: AppColors.iconPrimary.withOpacity(0.3),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         textAlign: TextAlign.center,
                       ),
@@ -176,21 +216,46 @@ class _SplashScreenState extends State<SplashScreen>
                 
                 const SizedBox(height: 48),
                 
-                // Loading Indicator
+                // Loading Indicator with new colors
                 AnimatedBuilder(
                   animation: _fadeController,
                   builder: (context, child) {
                     return Opacity(
                       opacity: _fadeAnimation.value,
-                      child: SizedBox(
-                        width: 40,
-                        height: 40,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            AppColors.primaryButton,
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 50,
+                            height: 50,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(25),
+                              gradient: LinearGradient(
+                                colors: AppColors.accentGradient,
+                                begin: Alignment.topLeft,
+                                end: Alignment.bottomRight,
+                              ),
+                            ),
+                            child: const Center(
+                              child: SizedBox(
+                                width: 30,
+                                height: 30,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 3,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Başlatılıyor...',
+                            style: AppTextStyles.bodySmall.copyWith(
+                              color: AppColors.secondaryText,
+                            ),
+                          ),
+                        ],
                       ),
                     );
                   },

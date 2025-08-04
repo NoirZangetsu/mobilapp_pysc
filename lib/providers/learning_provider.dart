@@ -7,12 +7,13 @@ import '../services/document_service.dart';
 import '../services/flashcard_service.dart';
 import '../services/podcast_service.dart';
 import 'package:flutter/material.dart'; // Added for context.read
-import '../providers/auth_provider.dart'; // Added for AuthProvider
+import 'package:cloud_firestore/cloud_firestore.dart'; // Added for Firestore
 
 class LearningProvider extends ChangeNotifier {
   final DocumentService _documentService = DocumentService();
   final FlashcardService _flashcardService = FlashcardService();
   final PodcastService _podcastService = PodcastService();
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance; // Added for Firestore
 
   // Documents
   List<Document> _documents = [];
@@ -42,25 +43,149 @@ class LearningProvider extends ChangeNotifier {
   bool get isCreatingPodcast => _isCreatingPodcast;
   String? get podcastError => _podcastError;
 
-  // Initialize provider
+  // Initialize provider with proper data loading
   Future<void> initialize(String userId) async {
     try {
-      // No need to load documents since we don't save them
+      print('LearningProvider: Initializing for user $userId');
+      
+      // Clear existing data
       _documents = [];
-
-      // Load user flashcard decks
-      _flashcardService.getUserFlashcardDecks(userId).listen((decks) {
-        _flashcardDecks = decks;
+      _flashcardDecks = [];
+      _podcasts = [];
+      
+      // Load user flashcard decks with proper error handling
+      try {
+        final flashcardStream = _flashcardService.getUserFlashcardDecks(userId);
+        flashcardStream.listen(
+          (decks) {
+            print('LearningProvider: Loaded ${decks.length} flashcard decks');
+            _flashcardDecks = decks;
+            notifyListeners();
+          },
+          onError: (error) {
+            print('LearningProvider: Flashcard loading error: $error');
+            _flashcardError = 'Flashcard yükleme hatası: $error';
+            // Don't clear existing data on error
+            notifyListeners();
+          },
+        );
+      } catch (e) {
+        print('LearningProvider: Flashcard service error: $e');
+        _flashcardError = 'Flashcard servis hatası: $e';
+        // Keep existing data if available
         notifyListeners();
-      });
+      }
 
-      // Load user podcasts
-      _podcastService.getUserPodcasts(userId).listen((podcasts) {
-        _podcasts = podcasts;
+      // Load user podcasts with proper error handling
+      try {
+        final podcastStream = _podcastService.getUserPodcasts(userId);
+        podcastStream.listen(
+          (podcasts) {
+            print('LearningProvider: Loaded ${podcasts.length} podcasts');
+            _podcasts = podcasts;
+            notifyListeners();
+          },
+          onError: (error) {
+            print('LearningProvider: Podcast loading error: $error');
+            _podcastError = 'Podcast yükleme hatası: $error';
+            // Don't clear existing data on error
+            notifyListeners();
+          },
+        );
+      } catch (e) {
+        print('LearningProvider: Podcast service error: $e');
+        _podcastError = 'Podcast servis hatası: $e';
+        // Keep existing data if available
         notifyListeners();
-      });
+      }
+
+      notifyListeners();
     } catch (e) {
-      print('Learning provider initialization failed: $e');
+      print('LearningProvider: Initialization failed: $e');
+      _flashcardError = 'Başlatma hatası: $e';
+      _podcastError = 'Başlatma hatası: $e';
+      notifyListeners();
+    }
+  }
+
+  // Load user data with enhanced error handling
+  Future<void> loadUserData(String userId) async {
+    try {
+      print('LearningProvider: Loading user data for $userId');
+      
+      // Load data from Firestore
+      await _loadPodcastsFromFirestore(userId);
+      await _loadDocumentsFromFirestore(userId);
+      await _loadFlashcardDecksFromFirestore(userId);
+    } catch (e) {
+      print('Error loading data: $e');
+      rethrow;
+    }
+  }
+
+  // Load podcasts from Firestore
+  Future<void> _loadPodcastsFromFirestore(String userId) async {
+    try {
+      final podcastsSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('podcasts')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      _podcasts = podcastsSnapshot.docs
+          .map((doc) => Podcast.fromMap(doc.data()))
+          .toList();
+      
+      print('LearningProvider: Loaded ${_podcasts.length} podcasts from Firestore');
+      notifyListeners();
+    } catch (e) {
+      print('Error loading podcasts: $e');
+      rethrow;
+    }
+  }
+
+  // Load documents from Firestore
+  Future<void> _loadDocumentsFromFirestore(String userId) async {
+    try {
+      final documentsSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('documents')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      _documents = documentsSnapshot.docs
+          .map((doc) => Document.fromMap(doc.data()))
+          .toList();
+      
+      print('LearningProvider: Loaded ${_documents.length} documents from Firestore');
+      notifyListeners();
+    } catch (e) {
+      print('Error loading documents: $e');
+      rethrow;
+    }
+  }
+
+  // Load flashcard decks from Firestore
+  Future<void> _loadFlashcardDecksFromFirestore(String userId) async {
+    try {
+      final flashcardSnapshot = await _firestore
+          .collection('users')
+          .doc(userId)
+          .collection('flashcardDecks')
+          .orderBy('createdAt', descending: true)
+          .get();
+      
+      _flashcardDecks = flashcardSnapshot.docs
+          .map((doc) => FlashcardDeck.fromMap(doc.data()))
+          .toList();
+      
+      print('LearningProvider: Loaded ${_flashcardDecks.length} flashcard decks from Firestore');
+      notifyListeners();
+    } catch (e) {
+      print('Error loading flashcard decks: $e');
+      rethrow;
     }
   }
 
@@ -140,7 +265,7 @@ class LearningProvider extends ChangeNotifier {
       await createFlashcardsFromTopic(
         userId,
         request,
-        'AI Oluşturulan Kartlar',
+        'Bilgi Kartları', // Simplified title
         cardCount: cardCount,
       );
 
@@ -153,21 +278,27 @@ class LearningProvider extends ChangeNotifier {
     }
   }
 
-  // Process podcast request from AI assistant
-  Future<void> processPodcastRequest(String request, String userId) async {
+  // Process podcast request
+  Future<void> processPodcastRequest(
+    String text,
+    String userId, {
+    String voiceStyle = 'professional',
+    String contentLength = 'detailed',
+    String language = 'tr-TR',
+  }) async {
     try {
       _isCreatingPodcast = true;
       _podcastError = null;
       notifyListeners();
 
-      // Parse the request and create podcast
-      // This is a simplified implementation - in a real app, you'd use AI to parse the request
+      // Parse the request and create podcast with enhanced options
       await createPodcastFromTopic(
         userId,
-        request,
-        'AI Oluşturulan Podcast',
-        voiceStyle: 'professional',
-        language: 'tr-TR',
+        text,
+        'Podcast', // Simplified title
+        voiceStyle: voiceStyle,
+        language: language,
+        contentLength: contentLength,
       );
 
       _isCreatingPodcast = false;
@@ -244,24 +375,32 @@ class LearningProvider extends ChangeNotifier {
     String userId,
     String topic,
     String title,
-    {String voiceStyle = 'professional', String language = 'tr-TR'}
+    {String voiceStyle = 'professional', String language = 'tr-TR', String contentLength = 'detailed'}
   ) async {
     try {
       _isCreatingPodcast = true;
       _podcastError = null;
       notifyListeners();
 
-      await _podcastService.createPodcastFromTopic(
+      print('Creating podcast: $title about $topic');
+      
+      final podcast = await _podcastService.createPodcastFromTopic(
         userId,
         topic,
         title,
         voiceStyle: voiceStyle,
         language: language,
+        contentLength: contentLength,
       );
+
+      print('Podcast created successfully: ${podcast.title}');
+      print('Podcast ID: ${podcast.id}');
+      print('Audio URL: ${podcast.audioUrl}');
 
       _isCreatingPodcast = false;
       notifyListeners();
     } catch (e) {
+      print('Podcast creation error: $e');
       _podcastError = 'Podcast oluşturma hatası: $e';
       _isCreatingPodcast = false;
       notifyListeners();

@@ -52,6 +52,7 @@ Sorular çeşitli zorluk seviyelerinde olmalı ve konunun farklı yönlerini kap
       await _saveFlashcardDeck(deck);
       return deck;
     } catch (e) {
+      print('Flashcard creation error: $e');
       throw Exception('Flashcard oluşturma başarısız: $e');
     }
   }
@@ -107,6 +108,7 @@ Sorular dokümanın ana konularını kapsamalı ve çeşitli zorluk seviyelerind
       await _saveFlashcardDeck(deck);
       return deck;
     } catch (e) {
+      print('Flashcard creation error: $e');
       throw Exception('Flashcard oluşturma başarısız: $e');
     }
   }
@@ -170,16 +172,7 @@ Sorular dokümanın ana konularını kapsamalı ve çeşitli zorluk seviyelerind
       print('JSON parse error: $e');
       print('Response: $response');
       
-      // Fallback: create a simple flashcard
-      return [
-        Flashcard(
-          id: 'card_0',
-          deckId: '',
-          question: 'Hata Oluştu',
-          answer: 'Flashcard oluşturulurken bir hata oluştu. Lütfen tekrar deneyin.',
-          createdAt: DateTime.now(),
-        ),
-      ];
+      throw Exception('Failed to parse flashcard data from AI response');
     }
   }
 

@@ -2,28 +2,35 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'firebase_options.dart';
-import 'providers/chat_provider.dart';
 import 'providers/auth_provider.dart';
+import 'providers/chat_provider.dart';
 import 'providers/learning_provider.dart';
-import 'screens/auth/auth_wrapper.dart';
 import 'screens/splash_screen.dart';
 import 'utils/app_colors.dart';
 import 'utils/app_text_styles.dart';
+import 'config/env_config.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
+  // Load environment variables from .env file
   await dotenv.load(fileName: ".env");
   
   try {
     await Firebase.initializeApp(
-      options: DefaultFirebaseOptions.currentPlatform,
+      options: FirebaseOptions(
+        apiKey: EnvConfig.firebaseApiKey,
+        appId: EnvConfig.firebaseAppId,
+        messagingSenderId: EnvConfig.firebaseMessagingSenderId,
+        projectId: EnvConfig.firebaseProjectId,
+        storageBucket: EnvConfig.firebaseStorageBucket,
+      ),
     );
+    print('Firebase initialized successfully');
   } catch (e) {
-    print('Firebase initialization failed: $e');
+    print('Firebase initialization error: $e');
   }
-  
+
   runApp(const MyApp());
 }
 
@@ -42,7 +49,7 @@ class MyApp extends StatelessWidget {
         title: 'EduVoice AI',
         debugShowCheckedModeBanner: false,
         theme: _buildAppTheme(),
-        home: const SplashWrapper(),
+        home: const SplashScreen(),
       ),
     );
   }
@@ -121,31 +128,5 @@ class MyApp extends StatelessWidget {
       labelStyle: AppTextStyles.bodyMedium.copyWith(color: AppColors.inputLabel),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
-  }
-}
-
-class SplashWrapper extends StatefulWidget {
-  const SplashWrapper({super.key});
-
-  @override
-  State<SplashWrapper> createState() => _SplashWrapperState();
-}
-
-class _SplashWrapperState extends State<SplashWrapper> {
-  bool _showSplash = true;
-
-  void _onSplashComplete() {
-    setState(() {
-      _showSplash = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_showSplash) {
-      return SplashScreen(onSplashComplete: _onSplashComplete);
-    } else {
-      return const AuthWrapper();
-    }
   }
 }
