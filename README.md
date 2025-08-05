@@ -14,6 +14,30 @@
 
 ---
 
+## 📱 Ekran Görüntüleri
+
+### 💬 Sohbet Ekranı
+![Sohbet Ekranı](screenshots/sohbet.jpeg)
+*AI asistanı ile sesli etkileşim ve metin tabanlı sohbet*
+
+### 🎴 Flashcard Sistemi
+![Flashcard Ana Ekran](screenshots/flaash-card.jpeg)
+*Akıllı öğrenme kartları oluşturma ve yönetimi*
+
+### 📚 Flashcard Kullanımı
+![Flashcard Kullanım](screenshots/flashcard-kullanım.jpeg)
+*Etkileşimli flashcard çalışma deneyimi*
+
+### 🎧 Podcast Oluşturma
+![Podcast Oluşturma](screenshots/podcast.jpeg)
+*Eğitimsel sesli içerik oluşturma ve yönetimi*
+
+### 🎵 Podcast Dinleme
+![Podcast Dinleme](screenshots/podcast-dinleme.jpeg)
+*Sesli içerikleri dinleme ve kontrol etme*
+
+---
+
 ## 📋 İçindekiler
 
 - [Proje Hakkında](#-proje-hakkında)
@@ -181,14 +205,6 @@ flutter run
 - **Ses Tonu**: Profesyonel, Arkadaşça, Seyirciye Uygun
 - **İçerik Uzunluğu**: Özet, Detaylı, Kapsamlı
 - **Dil Seçimi**: Türkçe odaklı
-
----
-
-### Firebase Kurulumu
-1. [Firebase Console](https://console.firebase.google.com/) adresine gidin
-2. Yeni proje oluşturun
-3. Android/iOS uygulaması ekleyin
-4. Konfigürasyon dosyalarını indirin
 
 ---
 
