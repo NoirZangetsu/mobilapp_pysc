@@ -80,8 +80,14 @@ class LearningProvider extends ChangeNotifier {
       try {
         final podcastStream = _podcastService.getUserPodcasts(userId);
         podcastStream.listen(
-          (podcasts) {
+          (podcasts) async {
             print('LearningProvider: Loaded ${podcasts.length} podcasts');
+            
+            // Validate durations for all podcasts
+            for (final podcast in podcasts) {
+              await _podcastService.validateAndUpdatePodcastDuration(podcast);
+            }
+            
             _podcasts = podcasts;
             notifyListeners();
           },

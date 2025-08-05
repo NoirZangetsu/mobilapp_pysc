@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/conversation.dart';
+import '../utils/app_colors.dart';
+import '../utils/app_text_styles.dart';
 
 class MessageBubble extends StatelessWidget {
   final ConversationMessage message;
@@ -35,8 +37,8 @@ class MessageBubble extends StatelessWidget {
               ),
               decoration: BoxDecoration(
                 color: message.isUser
-                    ? const Color(0xFF4A90E2)
-                    : const Color(0xFF3A3A3A),
+                    ? AppColors.userMessageBackground
+                    : AppColors.aiMessageBackground,
                 borderRadius: BorderRadius.circular(18).copyWith(
                   bottomLeft: message.isUser 
                       ? const Radius.circular(18)
@@ -45,27 +47,46 @@ class MessageBubble extends StatelessWidget {
                       ? const Radius.circular(4)
                       : const Radius.circular(18),
                 ),
+                border: Border.all(
+                  color: message.isUser
+                      ? AppColors.accentBlue.withValues(alpha: 0.3)
+                      : AppColors.borderLight.withValues(alpha: 0.3),
+                  width: 1,
+                ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     message.content,
-                    style: TextStyle(
-                      color: message.isUser ? Colors.white : Colors.white,
-                      fontSize: 16,
+                    style: AppTextStyles.bodyMedium.copyWith(
+                      color: message.isUser 
+                          ? AppColors.userMessageText
+                          : AppColors.aiMessageText,
                       height: 1.4,
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    DateFormat('HH:mm').format(message.timestamp),
-                    style: TextStyle(
-                      color: message.isUser 
-                          ? Colors.white.withValues(alpha: 0.7)
-                          : Colors.white.withValues(alpha: 0.5),
-                      fontSize: 12,
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('HH:mm').format(message.timestamp),
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: message.isUser 
+                              ? AppColors.userMessageText.withValues(alpha: 0.7)
+                              : AppColors.aiMessageText.withValues(alpha: 0.5),
+                        ),
+                      ),
+                      if (!message.isUser) ...[
+                        const SizedBox(width: 8),
+                        Icon(
+                          Icons.smart_toy,
+                          size: 12,
+                          color: AppColors.aiMessageText.withValues(alpha: 0.5),
+                        ),
+                      ],
+                    ],
                   ),
                 ],
               ),
@@ -86,9 +107,15 @@ class MessageBubble extends StatelessWidget {
       height: 32,
       decoration: BoxDecoration(
         color: message.isUser
-            ? const Color(0xFF4A90E2)
-            : const Color(0xFF6C6C6C),
+            ? AppColors.userMessageBackground
+            : AppColors.accentBlue,
         shape: BoxShape.circle,
+        border: Border.all(
+          color: message.isUser
+              ? AppColors.accentBlue.withValues(alpha: 0.3)
+              : AppColors.accentBlue.withValues(alpha: 0.3),
+          width: 1,
+        ),
       ),
       child: Icon(
         message.isUser ? Icons.person : Icons.smart_toy,

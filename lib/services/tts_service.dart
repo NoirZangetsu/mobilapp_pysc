@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'google_tts_service.dart';
+import 'package:just_audio/just_audio.dart';
 
 class TTSService {
   FlutterTts? _flutterTts;
@@ -86,6 +87,161 @@ class TTSService {
   Future<bool> isAvailable() async {
     if (!_isInitialized) await initialize();
     return _flutterTts != null || _googleTTS != null;
+  }
+
+  // Generate audio file with duration information
+  Future<Map<String, dynamic>> generateAudioFileWithDuration(
+    String text,
+    String voiceStyle,
+    String language,
+  ) async {
+    try {
+      if (!_isInitialized) await initialize();
+      
+      await _setVoiceStyle(voiceStyle);
+      
+      // Generate filename
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final filename = 'podcast_${voiceStyle}_$timestamp.mp3';
+      
+      // Get app documents directory
+      final directory = await getApplicationDocumentsDirectory();
+      final podcastDir = Directory('${directory.path}/podcasts');
+      
+      // Create directory if it doesn't exist
+      if (!await podcastDir.exists()) {
+        await podcastDir.create(recursive: true);
+      }
+      
+      final filePath = '${podcastDir.path}/$filename';
+      
+      // Try Google TTS first (primary method)
+      try {
+        print('Attempting Google TTS generation...');
+        final audioData = await _generateGoogleTTSAudio(text, voiceStyle);
+        if (audioData != null && audioData.isNotEmpty) {
+          final file = File(filePath);
+          await file.writeAsBytes(audioData);
+          print('Google TTS audio file created: $filePath');
+          print('Audio file size: ${await file.length()} bytes');
+          
+          // Get duration from the generated file
+          final duration = await _getAudioDuration(filePath);
+          return {
+            'filePath': filePath,
+            'duration': duration,
+            'method': 'google_tts',
+          };
+        } else {
+          print('Google TTS returned null or empty audio data');
+        }
+      } catch (e) {
+        print('Google TTS failed: $e');
+      }
+      
+      // Try Flutter TTS as backup
+      try {
+        print('Attempting Flutter TTS generation...');
+        final audioData = await _generateFlutterTTSAudio(text);
+        if (audioData != null && audioData.isNotEmpty) {
+          final file = File(filePath);
+          await file.writeAsBytes(audioData);
+          print('Flutter TTS audio file created: $filePath');
+          print('Audio file size: ${await file.length()} bytes');
+          
+          // Get duration from the generated file
+          final duration = await _getAudioDuration(filePath);
+          return {
+            'filePath': filePath,
+            'duration': duration,
+            'method': 'flutter_tts',
+          };
+        } else {
+          print('Flutter TTS returned null or empty audio data');
+        }
+      } catch (e) {
+        print('Flutter TTS failed: $e');
+      }
+      
+      throw Exception('TTS service failed to generate audio');
+      
+    } catch (e) {
+      print('Audio generation error: $e');
+      rethrow;
+    }
+  }
+
+  // Get audio duration from file
+  Future<Duration> _getAudioDuration(String filePath) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        throw Exception('Audio file not found: $filePath');
+      }
+
+      print('Getting duration for TTS file: $filePath');
+      print('File size: ${await file.length()} bytes');
+
+      // Use just_audio package to get duration
+      final player = AudioPlayer();
+      
+      try {
+        await player.setFilePath(filePath);
+        
+        // Wait a bit for the player to load the file
+        await Future.delayed(const Duration(milliseconds: 500));
+        
+        final duration = player.duration;
+        
+        if (duration != null) {
+          print('TTS audio duration: ${duration.inSeconds} seconds (${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')})');
+          return duration;
+        } else {
+          // If duration is null, try alternative method
+          print('TTS duration is null, trying alternative method...');
+          
+          // Try to get duration by playing a small portion
+          await player.seek(Duration.zero);
+          await player.play();
+          await Future.delayed(const Duration(milliseconds: 100));
+          await player.pause();
+          
+          final alternativeDuration = player.duration;
+          if (alternativeDuration != null) {
+            print('Alternative TTS duration method successful: ${alternativeDuration.inSeconds} seconds');
+            return alternativeDuration;
+          }
+          
+          throw Exception('Could not determine TTS audio duration - both methods failed');
+        }
+      } finally {
+        await player.dispose();
+      }
+    } catch (e) {
+      print('Error getting TTS audio duration: $e');
+      
+      // Fallback: estimate duration based on file size and bitrate
+      try {
+        final file = File(filePath);
+        final fileSize = await file.length();
+        
+        // Estimate duration based on typical MP3 bitrate (128 kbps)
+        // Formula: duration = file_size / (bitrate / 8)
+        const bitrate = 128 * 1024; // 128 kbps in bits per second
+        final estimatedSeconds = (fileSize * 8) / bitrate;
+        final estimatedDuration = Duration(seconds: estimatedSeconds.round());
+        
+        print('Using estimated TTS duration: ${estimatedDuration.inSeconds} seconds (based on file size)');
+        return estimatedDuration;
+      } catch (fallbackError) {
+        print('Fallback TTS duration estimation failed: $fallbackError');
+        
+        // Final fallback: return a default duration
+        const defaultDuration = Duration(minutes: 5);
+        print('Using default TTS duration: ${defaultDuration.inMinutes} minutes');
+        return defaultDuration;
+      }
+    }
   }
 
   Future<String> generateAudioFile(

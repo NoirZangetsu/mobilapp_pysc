@@ -26,6 +26,7 @@ class ChatProvider extends ChangeNotifier {
   bool _isFirebaseAvailable = false;
   Document? _currentDocument;
   List<Document> _userDocuments = [];
+  bool _ttsEnabledForText = false; // TTS toggle for text messages
 
   // Context management
   static const int _maxContextMessages = 15;
@@ -41,6 +42,7 @@ class ChatProvider extends ChangeNotifier {
   String? get error => _error;
   Document? get currentDocument => _currentDocument;
   List<Document> get userDocuments => _userDocuments;
+  bool get ttsEnabledForText => _ttsEnabledForText;
   
   Future<void> initialize() async {
     try {
@@ -201,14 +203,15 @@ class ChatProvider extends ChangeNotifier {
 
       final aiMessage = ConversationMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: '🤖 **AI Yanıtı:**\n$aiResponse',
+        content: aiResponse, // Clean formatting
         isUser: false,
         timestamp: DateTime.now(),
         documentId: _currentDocument?.id,
       );
 
       _addMessageToContext(aiMessage);
-      await _speakResponse(aiResponse);
+      // Remove automatic TTS for document analysis
+      // await _speakResponse(aiResponse);
 
       // Update conversation in Firebase (if available)
       if (_isFirebaseAvailable && _currentConversation != null) {
@@ -256,7 +259,7 @@ class ChatProvider extends ChangeNotifier {
       Future.delayed(const Duration(seconds: 30), () async {
         await stopListening();
         if (_partialText.isNotEmpty) {
-          await _processUserMessage(_partialText);
+          await _processVoiceMessage(_partialText);
         }
         _partialText = '';
         notifyListeners();
@@ -293,10 +296,10 @@ class ChatProvider extends ChangeNotifier {
       _error = null;
       notifyListeners();
 
-      // Add user message to conversation with enhanced formatting
+      // Add user message to conversation with clean formatting
       final userMessage = ConversationMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: '👤 **Kullanıcı:** $message',
+        content: message, // Remove markdown formatting for user messages
         isUser: true,
         timestamp: DateTime.now(),
       );
@@ -321,13 +324,16 @@ class ChatProvider extends ChangeNotifier {
       
       final aiMessage = ConversationMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: '🤖 **AI Asistanı:**\n$aiResponse',
+        content: aiResponse, // Remove markdown formatting for AI messages
         isUser: false,
         timestamp: DateTime.now(),
       );
 
       _addMessageToContext(aiMessage);
-      await _speakResponse(aiResponse);
+      // Use TTS only if enabled for text messages
+      if (_ttsEnabledForText) {
+        await _speakResponse(aiResponse);
+      }
 
       // Update conversation in Firebase (if available)
       if (_isFirebaseAvailable && _currentConversation != null) {
@@ -353,6 +359,75 @@ class ChatProvider extends ChangeNotifier {
     }
   }
 
+  // Process voice message with TTS response
+  Future<void> _processVoiceMessage(String message) async {
+    if (message.trim().isEmpty) return;
+
+    try {
+      _isProcessing = true;
+      _error = null;
+      notifyListeners();
+
+      // Add user message to conversation
+      final userMessage = ConversationMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        content: message,
+        isUser: true,
+        timestamp: DateTime.now(),
+      );
+
+      _addMessageToContext(userMessage);
+
+      // Generate AI response
+      String aiResponse;
+      
+      if (_currentDocument != null && _currentDocument!.content != null) {
+        final enhancedQuestion = _enhanceQuestionWithContext(message, _currentDocument!.content!);
+        aiResponse = await _geminiService.generateResponseWithDocument(
+          enhancedQuestion,
+          _getOptimizedContext(),
+          _currentDocument!.content!,
+        );
+      } else {
+        aiResponse = await _geminiService.generateResponse(message, _getOptimizedContext());
+      }
+      
+      final aiMessage = ConversationMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        content: aiResponse,
+        isUser: false,
+        timestamp: DateTime.now(),
+      );
+
+      _addMessageToContext(aiMessage);
+      
+      // Use TTS for voice interactions
+      await _speakResponse(aiResponse);
+
+      // Update conversation in Firebase (if available)
+      if (_isFirebaseAvailable && _currentConversation != null) {
+        try {
+          _currentConversation = _firebaseService.addMessageToConversation(
+            _currentConversation!,
+            userMessage,
+          );
+          await _firebaseService.updateConversation(_currentConversation!);
+        } catch (e) {
+          print('Failed to update Firebase: $e');
+        }
+      }
+
+      notifyListeners();
+
+    } catch (e) {
+      _error = 'Failed to process voice message: $e';
+      notifyListeners();
+    } finally {
+      _isProcessing = false;
+      notifyListeners();
+    }
+  }
+
   // Process image and generate response with enhanced processing
   Future<void> processImageWithQuestion(String question, File imageFile) async {
     if (question.trim().isEmpty) return;
@@ -367,7 +442,7 @@ class ChatProvider extends ChangeNotifier {
       // Add user message to conversation
       final userMessage = ConversationMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: '🖼️ **Görsel Analizi:** $question',
+        content: 'Görsel analizi: $question', // Clean formatting
         isUser: true,
         timestamp: DateTime.now(),
       );
@@ -383,13 +458,14 @@ class ChatProvider extends ChangeNotifier {
       
       final aiMessage = ConversationMessage(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
-        content: '🤖 **AI Görsel Analizi:**\n$aiResponse',
+        content: aiResponse, // Clean formatting
         isUser: false,
         timestamp: DateTime.now(),
       );
 
       _addMessageToContext(aiMessage);
-      await _speakResponse(aiResponse);
+      // Remove automatic TTS for image analysis
+      // await _speakResponse(aiResponse);
 
       // Update conversation in Firebase (if available)
       if (_isFirebaseAvailable && _currentConversation != null) {
@@ -786,5 +862,11 @@ class ChatProvider extends ChangeNotifier {
     } catch (e) {
       _setError('Ses tanıma durdurma hatası: $e');
     }
+  }
+
+  // Toggle TTS for the next response
+  void toggleTTSForNextResponse() {
+    _ttsEnabledForText = !_ttsEnabledForText;
+    notifyListeners();
   }
 } 
