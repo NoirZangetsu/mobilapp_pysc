@@ -131,6 +131,16 @@ class PodcastService {
       // Create podcast object with actual duration
       final actualDuration = audioResult['duration'] as Duration;
       
+      print('=== PODCAST CREATION SUMMARY ===');
+      print('Title: ${podcastData['title'] ?? title}');
+      print('Description: ${podcastData['description'] ?? '$topic konusu hakkında oluşturulan podcast'}');
+      print('Audio URL: ${audioResult['url']}');
+      print('Duration: ${actualDuration.inMinutes}:${(actualDuration.inSeconds % 60).toString().padLeft(2, '0')} (${actualDuration.inSeconds} seconds)');
+      print('Voice Style: $voiceStyle');
+      print('Language: $language');
+      print('Podcast Type: $podcastType');
+      print('Script Length: ${podcastData['script']?.length ?? 0} characters');
+      
       final podcast = Podcast(
         id: DateTime.now().millisecondsSinceEpoch.toString(),
         userId: userId,
@@ -150,8 +160,9 @@ class PodcastService {
       print('Podcast object created with ID: ${podcast.id}');
       print('Final title: ${podcast.title}');
       print('Final description: ${podcast.description}');
-      print('Actual duration: ${actualDuration.inMinutes}:${(actualDuration.inSeconds % 60).toString().padLeft(2, '0')}');
+      print('Final duration: ${podcast.duration.inMinutes}:${(podcast.duration.inSeconds % 60).toString().padLeft(2, '0')} (${podcast.duration.inSeconds} seconds)');
       print('Script saved: ${podcast.script?.length ?? 0} characters');
+      print('=== END PODCAST CREATION SUMMARY ===');
 
       // Save to Firestore with error handling
       try {
@@ -543,29 +554,76 @@ Dil: $language
     }
   }
 
-  // Get audio duration from file
+  // Get audio duration from file with enhanced error handling
   Future<Duration> _getAudioDuration(String filePath) async {
     try {
       final file = File(filePath);
-      if (await file.exists()) {
-        // Use just_audio package to get duration
-        final player = AudioPlayer();
+      if (!await file.exists()) {
+        throw Exception('Audio file not found for duration check: $filePath');
+      }
+
+      print('Getting duration for file: $filePath');
+      print('File size: ${await file.length()} bytes');
+
+      // Use just_audio package to get duration
+      final player = AudioPlayer();
+      
+      try {
         await player.setFilePath(filePath);
+        
+        // Wait a bit for the player to load the file
+        await Future.delayed(const Duration(milliseconds: 500));
+        
         final duration = player.duration;
-        await player.dispose();
         
         if (duration != null) {
-          print('Audio duration: ${duration.inSeconds} seconds');
+          print('Audio duration extracted: ${duration.inSeconds} seconds (${duration.inMinutes}:${(duration.inSeconds % 60).toString().padLeft(2, '0')})');
           return duration;
         } else {
-          throw Exception('Could not determine audio duration');
+          // If duration is null, try alternative method
+          print('Duration is null, trying alternative method...');
+          
+          // Try to get duration by playing a small portion
+          await player.seek(Duration.zero);
+          await player.play();
+          await Future.delayed(const Duration(milliseconds: 100));
+          await player.pause();
+          
+          final alternativeDuration = player.duration;
+          if (alternativeDuration != null) {
+            print('Alternative duration method successful: ${alternativeDuration.inSeconds} seconds');
+            return alternativeDuration;
+          }
+          
+          throw Exception('Could not determine audio duration - both methods failed');
         }
-      } else {
-        throw Exception('Audio file not found for duration check: $filePath');
+      } finally {
+        await player.dispose();
       }
     } catch (e) {
       print('Error getting audio duration: $e');
-      rethrow;
+      
+      // Fallback: estimate duration based on file size and bitrate
+      try {
+        final file = File(filePath);
+        final fileSize = await file.length();
+        
+        // Estimate duration based on typical MP3 bitrate (128 kbps)
+        // Formula: duration = file_size / (bitrate / 8)
+        const bitrate = 128 * 1024; // 128 kbps in bits per second
+        final estimatedSeconds = (fileSize * 8) / bitrate;
+        final estimatedDuration = Duration(seconds: estimatedSeconds.round());
+        
+        print('Using estimated duration: ${estimatedDuration.inSeconds} seconds (based on file size)');
+        return estimatedDuration;
+      } catch (fallbackError) {
+        print('Fallback duration estimation failed: $fallbackError');
+        
+        // Final fallback: return a default duration
+        const defaultDuration = Duration(minutes: 5);
+        print('Using default duration: ${defaultDuration.inMinutes} minutes');
+        return defaultDuration;
+      }
     }
   }
 
@@ -585,50 +643,32 @@ Dil: $language
         throw Exception('TTS service is not available');
       }
       
-      // Generate audio with enhanced settings
-      final audioFilePath = await _ttsService.generateAudioFile(
+      // Generate audio with duration information
+      print('Generating audio with duration information...');
+      final audioResult = await _ttsService.generateAudioFileWithDuration(
         script,
         voiceStyle,
         language,
       );
       
-      print('TTS generated audio file: $audioFilePath');
+      print('TTS generated audio file: ${audioResult['filePath']}');
+      print('TTS method used: ${audioResult['method']}');
+      print('TTS duration: ${audioResult['duration'].inSeconds} seconds');
       
-      // Save to local storage instead of Firebase Storage
-      try {
-        final audioFile = File(audioFilePath);
-        if (await audioFile.exists()) {
-          // Create a unique filename for local storage
-          final timestamp = DateTime.now().millisecondsSinceEpoch;
-          final filename = 'podcast_${voiceStyle}_$timestamp.mp3';
-          
-          // Get app documents directory
-          final directory = await getApplicationDocumentsDirectory();
-          final podcastDir = Directory('${directory.path}/podcasts');
-          
-          // Create directory if it doesn't exist
-          if (!await podcastDir.exists()) {
-            await podcastDir.create(recursive: true);
-            print('Created podcast directory: ${podcastDir.path}');
-          }
-          
-          // Copy file to local storage with unique name
-          final localFilePath = '${podcastDir.path}/$filename';
-          final localFile = File(localFilePath);
-          
-          await audioFile.copy(localFilePath);
-          print('Audio saved to local storage: $localFilePath');
-          print('File size: ${await localFile.length()} bytes');
-          print('File exists: ${await localFile.exists()}');
-          
-          final duration = await _getAudioDuration(localFilePath);
-          return {'url': localFilePath, 'duration': duration};
-        } else {
-          throw Exception('Audio file not found at path: $audioFilePath');
-        }
-      } catch (localError) {
-        print('Local storage error: $localError');
-        rethrow;
+      // Verify the file exists and get its size
+      final audioFile = File(audioResult['filePath']);
+      if (await audioFile.exists()) {
+        print('Audio file verified: ${audioResult['filePath']}');
+        print('Audio file size: ${await audioFile.length()} bytes');
+        print('Audio duration: ${audioResult['duration'].inMinutes}:${(audioResult['duration'].inSeconds % 60).toString().padLeft(2, '0')}');
+        
+        return {
+          'url': audioResult['filePath'],
+          'duration': audioResult['duration'],
+          'method': audioResult['method'],
+        };
+      } else {
+        throw Exception('Audio file not found at path: ${audioResult['filePath']}');
       }
     } catch (e) {
       print('Audio generation error: $e');
@@ -840,6 +880,38 @@ Dil: $language
       
     } catch (e) {
       print('Listen tracking error: $e');
+    }
+  }
+
+  // Validate and update podcast duration if needed
+  Future<void> validateAndUpdatePodcastDuration(Podcast podcast) async {
+    try {
+      final audioFile = File(podcast.audioUrl);
+      if (await audioFile.exists()) {
+        final actualDuration = await _getAudioDuration(podcast.audioUrl);
+        
+        // Check if the stored duration is significantly different from actual duration
+        final durationDifference = (podcast.duration.inSeconds - actualDuration.inSeconds).abs();
+        
+        if (durationDifference > 5) { // If difference is more than 5 seconds
+          print('Duration mismatch detected for podcast: ${podcast.title}');
+          print('Stored duration: ${podcast.duration.inSeconds} seconds');
+          print('Actual duration: ${actualDuration.inSeconds} seconds');
+          print('Difference: $durationDifference seconds');
+          
+          // Update the podcast with correct duration
+          final updatedPodcast = podcast.copyWith(duration: actualDuration);
+          await _savePodcast(updatedPodcast);
+          
+          print('Podcast duration updated successfully');
+        } else {
+          print('Duration is accurate for podcast: ${podcast.title}');
+        }
+      } else {
+        print('Audio file not found for podcast: ${podcast.title}');
+      }
+    } catch (e) {
+      print('Error validating podcast duration: $e');
     }
   }
 } 

@@ -608,6 +608,31 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               const SizedBox(width: 12),
+              // TTS Toggle Button
+              Container(
+                width: 44,
+                height: 44,
+                child: Consumer<ChatProvider>(
+                  builder: (context, chatProvider, child) {
+                    return IconButton(
+                      icon: Icon(
+                        chatProvider.ttsEnabledForText ? Icons.volume_up : Icons.volume_off,
+                        color: chatProvider.ttsEnabledForText 
+                            ? AppColors.accentBlue 
+                            : AppColors.secondaryText,
+                      ),
+                      onPressed: () {
+                        // Toggle TTS for next response
+                        chatProvider.toggleTTSForNextResponse();
+                      },
+                      tooltip: chatProvider.ttsEnabledForText 
+                          ? 'Sesli yanıt aktif' 
+                          : 'Sesli yanıt kapalı',
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 8),
               // Voice button
               Container(
                 width: 44,
