@@ -9,12 +9,14 @@ class AuthProvider extends ChangeNotifier {
   User? _currentUser;
   // User data from Firestore
   Map<String, dynamic>? _userData;
+  UserModel? _userModel;
   bool _isLoading = false;
   String? _error;
 
   // Getters
   User? get currentUser => _currentUser;
   Map<String, dynamic>? get userData => _userData;
+  UserModel? get userModel => _userModel;
   bool get isLoading => _isLoading;
   String? get error => _error;
   bool get isAuthenticated => _currentUser != null && _currentUser!.uid.isNotEmpty && !_isLoading;
@@ -43,6 +45,7 @@ class AuthProvider extends ChangeNotifier {
           _loadUserData();
         } else {
           _userData = null;
+          _userModel = null;
         }
         _setLoading(false);
         notifyListeners();
@@ -66,6 +69,36 @@ class AuthProvider extends ChangeNotifier {
       if (_currentUser != null) {
         final userData = await _authService.getUserData(_currentUser!.uid);
         _userData = userData;
+        
+        // Create UserModel from user data
+        if (userData != null) {
+          // Create UserModel directly from Map data
+          _userModel = UserModel(
+            uid: _currentUser!.uid,
+            email: userData['email'] ?? _currentUser!.email ?? '',
+            displayName: userData['displayName'] ?? _currentUser!.displayName,
+            createdAt: userData['createdAt'] != null 
+                ? (userData['createdAt'] as dynamic).toDate() 
+                : DateTime.now(),
+            isPremiumUser: userData['isPremiumUser'] ?? false,
+            selectedPersona: userData['selectedPersona'] ?? 'default',
+            studySubjects: List<String>.from(userData['studySubjects'] ?? []),
+            educationLevel: userData['educationLevel'] ?? 'high_school',
+            learningStyle: userData['learningStyle'] ?? 'visual',
+            learningGoals: List<String>.from(userData['learningGoals'] ?? []),
+            preferredLanguage: userData['preferredLanguage'] ?? 'tr-TR',
+            studyTimePerDay: userData['studyTimePerDay'] ?? 60,
+            weakAreas: List<String>.from(userData['weakAreas'] ?? []),
+            strongAreas: List<String>.from(userData['strongAreas'] ?? []),
+            studyEnvironment: userData['studyEnvironment'] ?? 'home',
+            enableNotifications: userData['enableNotifications'] ?? true,
+            preferredVoiceStyle: userData['preferredVoiceStyle'] ?? 'professional',
+          );
+        } else {
+          // Create default user model
+          _userModel = UserModel.fromFirebaseUser(_currentUser!);
+        }
+        
         notifyListeners();
       }
     } catch (e) {
@@ -184,6 +217,67 @@ class AuthProvider extends ChangeNotifier {
       _setLoading(true);
       
       await _authService.updateUserData(_currentUser!.uid, data);
+      
+      // Reload user data
+      await _loadUserData();
+      
+      _setLoading(false);
+      return true;
+    } catch (e) {
+      _setError(e.toString());
+      return false;
+    }
+  }
+
+  // Update education preferences
+  Future<bool> updateEducationPreferences({
+    List<String>? studySubjects,
+    String? educationLevel,
+    String? learningStyle,
+    List<String>? learningGoals,
+    String? preferredLanguage,
+    int? studyTimePerDay,
+    List<String>? weakAreas,
+    List<String>? strongAreas,
+    String? studyEnvironment,
+    String? preferredVoiceStyle,
+  }) async {
+    try {
+      if (_currentUser == null) return false;
+      
+      _clearError();
+      _setLoading(true);
+      
+      final updateData = <String, dynamic>{};
+      
+      if (studySubjects != null) updateData['studySubjects'] = studySubjects;
+      if (educationLevel != null) updateData['educationLevel'] = educationLevel;
+      if (learningStyle != null) updateData['learningStyle'] = learningStyle;
+      if (learningGoals != null) updateData['learningGoals'] = learningGoals;
+      if (preferredLanguage != null) updateData['preferredLanguage'] = preferredLanguage;
+      if (studyTimePerDay != null) updateData['studyTimePerDay'] = studyTimePerDay;
+      if (weakAreas != null) updateData['weakAreas'] = weakAreas;
+      if (strongAreas != null) updateData['strongAreas'] = strongAreas;
+      if (studyEnvironment != null) updateData['studyEnvironment'] = studyEnvironment;
+      if (preferredVoiceStyle != null) updateData['preferredVoiceStyle'] = preferredVoiceStyle;
+      
+      await _authService.updateUserData(_currentUser!.uid, updateData);
+      
+      // Update local user model
+      if (_userModel != null) {
+        _userModel = _userModel!.copyWith(
+          studySubjects: studySubjects,
+          educationLevel: educationLevel,
+          learningStyle: learningStyle,
+          learningGoals: learningGoals,
+          preferredLanguage: preferredLanguage,
+          studyTimePerDay: studyTimePerDay,
+          weakAreas: weakAreas,
+          strongAreas: strongAreas,
+          studyEnvironment: studyEnvironment,
+          preferredVoiceStyle: preferredVoiceStyle,
+        );
+      }
       
       // Reload user data
       await _loadUserData();

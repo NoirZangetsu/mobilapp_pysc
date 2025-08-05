@@ -7,6 +7,7 @@ import '../providers/learning_provider.dart';
 import '../services/settings_service.dart';
 import '../utils/app_colors.dart';
 import '../utils/app_text_styles.dart';
+import 'education_preferences_screen.dart';
 
 class ProfileScreen extends StatelessWidget {
   const ProfileScreen({super.key});
@@ -24,20 +25,23 @@ class ProfileScreen extends StatelessWidget {
         ),
         centerTitle: true,
         iconTheme: const IconThemeData(color: AppColors.headingText),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings, color: AppColors.secondaryText),
-            onPressed: () {
-              _showSettingsDialog(context);
-            },
-          ),
-        ],
       ),
       body: SafeArea(
         child: Consumer3<AuthProvider, ChatProvider, LearningProvider>(
           builder: (context, authProvider, chatProvider, learningProvider, child) {
             final user = authProvider.currentUser;
             final userData = authProvider.userData;
+            final userModel = authProvider.userModel;
+            
+            // E-posta bilgisini farklı kaynaklardan al
+            String userEmail = 'kullanici@example.com';
+            if (user?.email != null && user!.email!.isNotEmpty) {
+              userEmail = user.email!;
+            } else if (userModel?.email != null && userModel!.email.isNotEmpty) {
+              userEmail = userModel.email;
+            } else if (userData != null && userData is Map && userData['email'] != null) {
+              userEmail = userData['email'];
+            }
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(16),
@@ -45,15 +49,19 @@ class ProfileScreen extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // Profile Header
-                  _buildProfileHeader(user, userData),
+                  _buildProfileHeader(user, userData, userEmail),
                   const SizedBox(height: 20),
                   
                   // Quick Stats
                   _buildQuickStats(chatProvider, learningProvider),
                   const SizedBox(height: 20),
                   
-                  // Features Section
-                  _buildFeaturesSection(context),
+                  // Education Information Section
+                  _buildEducationInfoSection(context, authProvider),
+                  const SizedBox(height: 20),
+                  
+                  // Settings Section
+                  _buildSettingsSection(context),
                   const SizedBox(height: 20),
                   
                   // Account Section
@@ -75,7 +83,7 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildProfileHeader(User? user, dynamic userData) {
+  Widget _buildProfileHeader(User? user, dynamic userData, String userEmail) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -137,25 +145,37 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           
-          // User Name
+          // User Email (Primary Info)
           Text(
-            (userData is Map ? userData['displayName'] : null) ?? user?.displayName ?? 'Öğrenme Asistanı Kullanıcısı',
+            userEmail,
             style: AppTextStyles.headingMedium.copyWith(
               fontWeight: FontWeight.w600,
+              color: AppColors.headingText,
             ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
           
-          // Email
+          // Display Name (Secondary Info)
+          if (userData is Map && userData['displayName'] != null)
+            Text(
+              userData['displayName'],
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: AppColors.secondaryText,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          const SizedBox(height: 16),
+          
+          // User Email (Above Status)
           Text(
-            user?.email ?? 'kullanici@example.com',
+            userEmail,
             style: AppTextStyles.bodyMedium.copyWith(
               color: AppColors.secondaryText,
             ),
             textAlign: TextAlign.center,
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
           
           // Status indicator
           Container(
@@ -300,7 +320,9 @@ class ProfileScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildFeaturesSection(BuildContext context) {
+  Widget _buildEducationInfoSection(BuildContext context, AuthProvider authProvider) {
+    final userModel = authProvider.userModel;
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -322,13 +344,13 @@ class ProfileScreen extends StatelessWidget {
           Row(
             children: [
               Icon(
-                Icons.auto_awesome,
+                Icons.school_outlined,
                 color: AppColors.accentBlue,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                'Özellikler',
+                'Eğitim Bilgileri',
                 style: AppTextStyles.headingSmall.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
@@ -337,65 +359,142 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           
-          _buildFeatureTile(
-            icon: Icons.chat_bubble_outline,
-            title: 'AI Sohbet',
-            subtitle: 'Gemini 2.0 Flash ile akıllı sohbet',
-            color: AppColors.accentBlue,
-            onTap: () {
-              // Navigate to chat
-            },
-          ),
+          if (userModel != null) ...[
+            _buildInfoRow('Eğitim Seviyesi', _getEducationLevelDisplay(userModel.educationLevel)),
+            _buildInfoRow('Öğrenme Stili', _getLearningStyleDisplay(userModel.learningStyle)),
+            _buildInfoRow('Çalışma Ortamı', _getStudyEnvironmentDisplay(userModel.studyEnvironment)),
+            _buildInfoRow('Günlük Çalışma', '${userModel.studyTimePerDay} dakika'),
+            if (userModel.studySubjects.isNotEmpty)
+              _buildInfoRow('Çalışma Konuları', userModel.studySubjects.join(', ')),
+            if (userModel.learningGoals.isNotEmpty)
+              _buildInfoRow('Öğrenme Hedefleri', userModel.learningGoals.join(', ')),
+          ] else ...[
+            _buildInfoRow('Eğitim Seviyesi', 'Belirtilmemiş'),
+            _buildInfoRow('Öğrenme Stili', 'Belirtilmemiş'),
+            _buildInfoRow('Çalışma Ortamı', 'Belirtilmemiş'),
+            _buildInfoRow('Günlük Çalışma', 'Belirtilmemiş'),
+          ],
           
-          _buildFeatureTile(
-            icon: Icons.style_outlined,
-            title: 'Bilgi Kartları',
-            subtitle: 'AI ile otomatik kart oluşturma',
-            color: AppColors.accentBlue,
-            onTap: () {
-              // Navigate to flashcards
-            },
-          ),
+          const SizedBox(height: 16),
           
-          _buildFeatureTile(
-            icon: Icons.headphones_outlined,
-            title: 'Podcast\'ler',
-            subtitle: 'Sesli öğrenme içerikleri',
-            color: AppColors.accentBlue,
-            onTap: () {
-              // Navigate to podcasts
-            },
-          ),
-          
-          _buildFeatureTile(
-            icon: Icons.upload_file_outlined,
-            title: 'Multimodal',
-            subtitle: 'PDF ve görsel analizi',
-            color: AppColors.accentBlue,
-            onTap: () {
-              // Show multimodal info
-            },
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const EducationPreferencesScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(Icons.edit_outlined, size: 18),
+              label: const Text('Eğitim Tercihlerini Düzenle'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.accentBlue,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFeatureTile({
+  Widget _buildSettingsSection(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppColors.borderLight),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.accentBlue.withValues(alpha: 0.05),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.settings_outlined,
+                color: AppColors.accentBlue,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
+              Text(
+                'Ayarlar',
+                style: AppTextStyles.headingSmall.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          
+          _buildSettingsTile(
+            icon: Icons.notifications_outlined,
+            title: 'Bildirimler',
+            subtitle: 'Bildirim ayarlarını yönet',
+            onTap: () => _showNotificationsSettings(context),
+          ),
+          
+          _buildSettingsTile(
+            icon: Icons.security_outlined,
+            title: 'Güvenlik',
+            subtitle: 'Şifre değiştir ve güvenlik ayarları',
+            onTap: () => _showSecuritySettings(context),
+          ),
+          
+          _buildSettingsTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Gizlilik',
+            subtitle: 'Gizlilik ayarlarını yönet',
+            onTap: () => _showPrivacySettings(context),
+          ),
+          
+          _buildSettingsTile(
+            icon: Icons.download_outlined,
+            title: 'Verileri Dışa Aktar',
+            subtitle: 'Kişisel verilerinizi indirin',
+            onTap: () => _exportUserData(context),
+          ),
+          
+          _buildSettingsTile(
+            icon: Icons.help_outline,
+            title: 'Yardım',
+            subtitle: 'Kullanım kılavuzu ve destek',
+            onTap: () => _showHelpSection(context),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSettingsTile({
     required IconData icon,
     required String title,
     required String subtitle,
-    required Color color,
     required VoidCallback onTap,
   }) {
     return ListTile(
       leading: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
+          color: AppColors.accentBlue.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
         ),
-        child: Icon(icon, color: color, size: 20),
+        child: Icon(icon, color: AppColors.accentBlue, size: 20),
       ),
       title: Text(
         title,
@@ -420,6 +519,14 @@ class ProfileScreen extends StatelessWidget {
   }
 
   Widget _buildAccountSection(BuildContext context, User? user, dynamic userData) {
+    // E-posta bilgisini farklı kaynaklardan al
+    String userEmail = 'kullanici@example.com';
+    if (user?.email != null && user!.email!.isNotEmpty) {
+      userEmail = user.email!;
+    } else if (userData != null && userData is Map && userData['email'] != null) {
+      userEmail = userData['email'];
+    }
+    
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(20),
@@ -456,7 +563,7 @@ class ProfileScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           
-          _buildInfoRow('E-posta', user?.email ?? ''),
+          _buildInfoRow('E-posta', userEmail),
           _buildInfoRow('Kullanıcı ID', user?.uid ?? ''),
           _buildInfoRow('Hesap Oluşturma', _formatDate(user?.metadata.creationTime)),
           _buildInfoRow('Son Giriş', _formatDate(user?.metadata.lastSignInTime)),
@@ -608,107 +715,41 @@ class ProfileScreen extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 
-  void _showSettingsDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceBackground,
-        title: Text(
-          'Ayarlar',
-          style: AppTextStyles.headingSmall.copyWith(color: AppColors.headingText),
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.notifications, color: AppColors.accentBlue),
-              title: Text(
-                'Bildirimler',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
-              ),
-              subtitle: Text(
-                'Bildirim ayarlarını yönet',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showNotificationsSettings(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.security, color: AppColors.accentBlue),
-              title: Text(
-                'Güvenlik',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
-              ),
-              subtitle: Text(
-                'Şifre değiştir ve güvenlik ayarları',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showSecuritySettings(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.privacy_tip, color: AppColors.accentBlue),
-              title: Text(
-                'Gizlilik',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
-              ),
-              subtitle: Text(
-                'Gizlilik ayarlarını yönet',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showPrivacySettings(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.download, color: AppColors.accentBlue),
-              title: Text(
-                'Verileri Dışa Aktar',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
-              ),
-              subtitle: Text(
-                'Kişisel verilerinizi indirin',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _exportUserData(context);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.help_outline, color: AppColors.accentBlue),
-              title: Text(
-                'Yardım',
-                style: AppTextStyles.bodyMedium.copyWith(color: AppColors.headingText),
-              ),
-              subtitle: Text(
-                'Kullanım kılavuzu ve destek',
-                style: AppTextStyles.bodySmall.copyWith(color: AppColors.secondaryText),
-              ),
-              onTap: () {
-                Navigator.pop(context);
-                _showHelpSection(context);
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'Kapat',
-              style: AppTextStyles.bodyMedium.copyWith(color: AppColors.accentBlue),
-            ),
-          ),
-        ],
-      ),
-    );
+  String _getEducationLevelDisplay(String key) {
+    switch (key) {
+      case 'primary_school': return 'İlkokul';
+      case 'middle_school': return 'Ortaokul';
+      case 'high_school': return 'Lise';
+      case 'university': return 'Üniversite';
+      case 'graduate': return 'Yüksek Lisans';
+      case 'phd': return 'Doktora';
+      case 'professional': return 'Profesyonel';
+      case 'self_study': return 'Kendi Kendine Öğrenme';
+      default: return key;
+    }
+  }
+
+  String _getLearningStyleDisplay(String key) {
+    switch (key) {
+      case 'visual': return 'Görsel Öğrenme';
+      case 'auditory': return 'İşitsel Öğrenme';
+      case 'kinesthetic': return 'Kinestetik Öğrenme';
+      case 'reading': return 'Okuma/Yazma';
+      case 'mixed': return 'Karma Öğrenme';
+      default: return key;
+    }
+  }
+
+  String _getStudyEnvironmentDisplay(String key) {
+    switch (key) {
+      case 'home': return 'Ev';
+      case 'library': return 'Kütüphane';
+      case 'cafe': return 'Kafe';
+      case 'office': return 'Ofis';
+      case 'outdoor': return 'Açık Alan';
+      case 'classroom': return 'Sınıf';
+      default: return key;
+    }
   }
 
   void _showNotificationsSettings(BuildContext context) {
@@ -1162,82 +1203,6 @@ class ProfileScreen extends StatelessWidget {
         ],
       ),
     );
-  }
-
-  void _showDeleteDataDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Verileri Sil'),
-        content: const Text(
-          'Tüm kişisel verileriniz kalıcı olarak silinecek. Bu işlem geri alınamaz. Devam etmek istediğinizden emin misiniz?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('İptal'),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              _deleteUserData(context);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.error,
-            ),
-            child: const Text('Verileri Sil'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _deleteUserData(BuildContext context) async {
-    try {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: const Text('Verileri Sil'),
-          content: const Text(
-            'Bu işlem geri alınamaz. Tüm verileriniz kalıcı olarak silinecektir. Devam etmek istediğinizden emin misiniz?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('İptal'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.error,
-              ),
-              child: const Text('Sil'),
-            ),
-          ],
-        ),
-      );
-
-      if (confirmed == true) {
-        final settingsService = SettingsService();
-        await settingsService.deleteUserData();
-        
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Tüm verileriniz başarıyla silindi'),
-            backgroundColor: AppColors.success,
-            duration: Duration(seconds: 3),
-          ),
-        );
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Hata: $e'),
-          backgroundColor: AppColors.error,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
   }
 
   void _showUserGuide(BuildContext context) {

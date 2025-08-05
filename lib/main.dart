@@ -41,8 +41,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => ChatProvider()),
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProxyProvider<AuthProvider, ChatProvider>(
+          create: (_) => ChatProvider(),
+          update: (_, authProvider, chatProvider) {
+            // Update chat provider with user preferences when auth changes
+            if (authProvider.userModel != null) {
+              chatProvider?.updateUserPreferences(authProvider.userModel!);
+            }
+            return chatProvider ?? ChatProvider();
+          },
+        ),
         ChangeNotifierProvider(create: (_) => LearningProvider()),
       ],
       child: MaterialApp(

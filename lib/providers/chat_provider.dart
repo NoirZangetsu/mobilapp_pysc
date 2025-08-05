@@ -8,6 +8,8 @@ import '../services/gemini_service.dart';
 import '../services/speech_service.dart';
 import '../services/tts_service.dart';
 import '../services/document_service.dart';
+import '../models/education_preferences.dart';
+import '../models/user_model.dart'; // Added import for UserModel
 
 class ChatProvider extends ChangeNotifier {
   final FirebaseService _firebaseService = FirebaseService();
@@ -43,6 +45,100 @@ class ChatProvider extends ChangeNotifier {
   Document? get currentDocument => _currentDocument;
   List<Document> get userDocuments => _userDocuments;
   bool get ttsEnabledForText => _ttsEnabledForText;
+
+  // Enhanced context with user education preferences
+  String _getPersonalizedContext() {
+    // This will be called from the main app to get user preferences
+    // For now, return a basic personalized context
+    return '''
+Kullanıcı Eğitim Profili:
+- Eğitim Seviyesi: ${_getUserEducationLevel()}
+- Öğrenme Stili: ${_getUserLearningStyle()}
+- Çalışma Konuları: ${_getUserSubjects()}
+- Öğrenme Hedefleri: ${_getUserGoals()}
+- Güçlü Alanlar: ${_getUserStrongAreas()}
+- Geliştirilmesi Gereken Alanlar: ${_getUserWeakAreas()}
+- Günlük Çalışma Süresi: ${_getUserStudyTime()} dakika
+- Çalışma Ortamı: ${_getUserStudyEnvironment()}
+- Tercih Edilen Ses Stili: ${_getUserVoiceStyle()}
+
+Bu bilgileri kullanarak kişiselleştirilmiş eğitim desteği sağla.
+''';
+  }
+
+  // Update user preferences for personalized responses
+  void updateUserPreferences(UserModel userModel) {
+    // Update the personalized context with actual user data
+    _currentUserModel = userModel;
+    notifyListeners();
+  }
+
+  // Get user education level from actual user data
+  String _getUserEducationLevel() {
+    if (_currentUserModel != null) {
+      return EducationPreferences.getEducationLevelDisplay(_currentUserModel!.educationLevel);
+    }
+    return 'Lise';
+  }
+
+  String _getUserLearningStyle() {
+    if (_currentUserModel != null) {
+      return EducationPreferences.getLearningStyleDisplay(_currentUserModel!.learningStyle);
+    }
+    return 'Görsel Öğrenme';
+  }
+
+  String _getUserSubjects() {
+    if (_currentUserModel != null && _currentUserModel!.studySubjects.isNotEmpty) {
+      return _currentUserModel!.studySubjects.join(', ');
+    }
+    return 'Matematik, Fizik, Kimya';
+  }
+
+  String _getUserGoals() {
+    if (_currentUserModel != null && _currentUserModel!.learningGoals.isNotEmpty) {
+      return _currentUserModel!.learningGoals.join(', ');
+    }
+    return 'Sınavlara Hazırlanma, Kariyer Gelişimi';
+  }
+
+  String _getUserStrongAreas() {
+    if (_currentUserModel != null && _currentUserModel!.strongAreas.isNotEmpty) {
+      return _currentUserModel!.strongAreas.join(', ');
+    }
+    return 'Problem Çözme, Analitik Düşünme';
+  }
+
+  String _getUserWeakAreas() {
+    if (_currentUserModel != null && _currentUserModel!.weakAreas.isNotEmpty) {
+      return _currentUserModel!.weakAreas.join(', ');
+    }
+    return 'Hafıza, Odaklanma';
+  }
+
+  String _getUserStudyTime() {
+    if (_currentUserModel != null) {
+      return _currentUserModel!.studyTimePerDay.toString();
+    }
+    return '60';
+  }
+
+  String _getUserStudyEnvironment() {
+    if (_currentUserModel != null) {
+      return EducationPreferences.getStudyEnvironmentDisplay(_currentUserModel!.studyEnvironment);
+    }
+    return 'Ev';
+  }
+
+  String _getUserVoiceStyle() {
+    if (_currentUserModel != null) {
+      return EducationPreferences.getVoiceStyleDisplay(_currentUserModel!.preferredVoiceStyle);
+    }
+    return 'Profesyonel';
+  }
+
+  // Add user model field
+  UserModel? _currentUserModel;
   
   Future<void> initialize() async {
     try {
@@ -733,15 +829,24 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // Get optimized context for AI
+  // Get optimized context for AI with personalized education preferences
   List<ConversationMessage> _getOptimizedContext() {
-    if (_messages.length <= _maxContextMessages) return _messages;
+    final context = <ConversationMessage>[];
     
-    // Keep system messages and most recent messages
-    final systemMessages = _messages.where((msg) => msg.isSystemMessage).toList();
-    final recentMessages = _messages.take(_maxContextMessages - systemMessages.length).toList();
+    // Add personalized context as first message
+    final personalizedContext = ConversationMessage(
+      id: 'personalized_context',
+      content: _getPersonalizedContext(),
+      isUser: false,
+      timestamp: DateTime.now(),
+    );
+    context.add(personalizedContext);
     
-    return [...systemMessages, ...recentMessages];
+    // Add recent messages (limit to prevent token overflow)
+    final recentMessages = _messages.take(_maxContextMessages).toList();
+    context.addAll(recentMessages);
+    
+    return context;
   }
 
   // Enhance question with context
