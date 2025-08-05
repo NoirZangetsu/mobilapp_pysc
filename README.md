@@ -10,6 +10,11 @@
   [![Firebase](https://img.shields.io/badge/Firebase-Enabled-orange.svg)](https://firebase.google.com/)
   [![Gemini AI](https://img.shields.io/badge/Gemini%202.0%20Flash-Enabled-green.svg)](https://ai.google.dev/)
   [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+  
+  ### 📱 Hemen İndir ve Dene!
+  [![Download APK](https://img.shields.io/badge/Download-APK%20(26MB)-brightgreen.svg)](EduVoice_AI.apk)
+  
+  *Android 5.0+ gereklidir. APK dosyasını indirip cihazınıza yükleyebilirsiniz.*
 </div>
 
 ---
@@ -119,24 +124,33 @@
 
 ## 🚀 Kurulum
 
-### Gereksinimler
+### 📱 Hızlı Başlangıç (APK ile)
+1. **APK Dosyasını İndirin**: [EduVoice_AI.apk](EduVoice_AI.apk) (26MB)
+2. **Bilinmeyen Kaynaklardan İndirmeye İzin Verin**: Ayarlar > Güvenlik > Bilinmeyen Kaynaklar
+3. **APK Dosyasını Açın**: İndirilen dosyaya tıklayın
+4. **Yükleyin**: "Yükle" butonuna basın
+5. **Uygulamayı Açın**: EduVoice AI'ı başlatın
+
+### 🛠️ Geliştirici Kurulumu
+
+#### Gereksinimler
 - Flutter SDK 3.8.0+
 - Dart 3.0+
 - Android Studio / VS Code
 - Git
 
-### Adım 1: Projeyi Klonlayın
+#### Adım 1: Projeyi Klonlayın
 ```bash
 git clone https://github.com/your-username/eduvoice-ai.git
 cd eduvoice-ai
 ```
 
-### Adım 2: Bağımlılıkları Yükleyin
+#### Adım 2: Bağımlılıkları Yükleyin
 ```bash
 flutter pub get
 ```
 
-### Adım 3: Environment Variables
+#### Adım 3: Environment Variables
 `.env` dosyasını oluşturun ve API key'lerinizi ekleyin:
 
 ```env
@@ -154,13 +168,13 @@ FIREBASE_SENDER_ID=your_firebase_sender_id
 FIREBASE_STORAGE_BUCKET=your_firebase_storage_bucket
 ```
 
-### Adım 4: Firebase Kurulumu
+#### Adım 4: Firebase Kurulumu
 1. Firebase Console'da yeni proje oluşturun
 2. Android/iOS uygulaması ekleyin
 3. `google-services.json` dosyasını `android/app/` klasörüne ekleyin
 4. iOS için `GoogleService-Info.plist` dosyasını `ios/Runner/` klasörüne ekleyin
 
-### Adım 5: Uygulamayı Çalıştırın
+#### Adım 5: Uygulamayı Çalıştırın
 ```bash
 flutter run
 ```
