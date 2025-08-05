@@ -16,25 +16,22 @@
 
 ## 📱 Ekran Görüntüleri
 
-### 💬 Sohbet Ekranı
-![Sohbet Ekranı](screenshots/sohbet.jpeg)
-*AI asistanı ile sesli etkileşim ve metin tabanlı sohbet*
+<div align="center">
 
-### 🎴 Flashcard Sistemi
-![Flashcard Ana Ekran](screenshots/flaash-card.jpeg)
-*Akıllı öğrenme kartları oluşturma ve yönetimi*
+### 💬 Sohbet & 🎴 Flashcard & 📚 Kullanım
+<img src="screenshots/sohbet.jpeg" alt="Sohbet Ekranı" width="200" height="400">
+<img src="screenshots/flaash-card.jpeg" alt="Flashcard Ana Ekran" width="200" height="400">
+<img src="screenshots/flashcard-kullanım.jpeg" alt="Flashcard Kullanım" width="200" height="400">
 
-### 📚 Flashcard Kullanımı
-![Flashcard Kullanım](screenshots/flashcard-kullanım.jpeg)
-*Etkileşimli flashcard çalışma deneyimi*
+*AI asistanı ile sesli etkileşim • Akıllı öğrenme kartları oluşturma • Etkileşimli flashcard çalışma deneyimi*
 
-### 🎧 Podcast Oluşturma
-![Podcast Oluşturma](screenshots/podcast.jpeg)
-*Eğitimsel sesli içerik oluşturma ve yönetimi*
+### 🎧 Podcast Oluşturma & 🎵 Podcast Dinleme
+<img src="screenshots/podcast.jpeg" alt="Podcast Oluşturma" width="200" height="400">
+<img src="screenshots/podcast-dinleme.jpeg" alt="Podcast Dinleme" width="200" height="400">
 
-### 🎵 Podcast Dinleme
-![Podcast Dinleme](screenshots/podcast-dinleme.jpeg)
-*Sesli içerikleri dinleme ve kontrol etme*
+*Eğitimsel sesli içerik oluşturma ve yönetimi • Sesli içerikleri dinleme ve kontrol etme*
+
+</div>
 
 ---
 
