@@ -19,7 +19,7 @@ void main() async {
   try {
     await Firebase.initializeApp(
       options: FirebaseOptions(
-        apiKey: EnvConfig.firebaseApiKey,
+        apiKey: EnvConfig.getFirebaseApiKey(),
         appId: EnvConfig.firebaseAppId,
         messagingSenderId: EnvConfig.firebaseMessagingSenderId,
         projectId: EnvConfig.firebaseProjectId,

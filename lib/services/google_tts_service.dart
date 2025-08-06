@@ -12,7 +12,7 @@ class GoogleTTSService {
   
   // API configuration
   static const String _baseUrl = 'https://texttospeech.googleapis.com/v1/text:synthesize';
-  static String get _apiKey => EnvConfig.googleTtsApiKey;
+  static String get _apiKey => EnvConfig.getGoogleTtsApiKey();
   
   // Enhanced voice configurations for Google TTS - Natural human-like speech
   static const Map<String, Map<String, dynamic>> _voiceConfigs = {

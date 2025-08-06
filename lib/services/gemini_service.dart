@@ -448,7 +448,7 @@ Bu sistem, öğrencilerin öğrenme deneyimini maksimuma çıkarmak için optimi
     for (int attempt = 1; attempt <= _maxRetries; attempt++) {
       try {
         final response = await http.post(
-          Uri.parse('$_baseUrl?key=${EnvConfig.geminiApiKey}'),
+          Uri.parse('$_baseUrl?key=${EnvConfig.getGeminiApiKey()}'),
           headers: {
             'Content-Type': 'application/json',
             'User-Agent': 'LearningAssistant/1.0',
